@@ -62,13 +62,14 @@ export function Dashboard({ profile }: { profile: Profile }) {
 	const count = (s: Status) => all.filter((p) => p.status === s).length;
 	const decided = count("Won") + count("Lost");
 	const profileThin = !profile.whatWeDo.trim() || !profile.services.trim();
+	const hasProposals = all.length > 0;
 
 	return (
 		<div className="page">
 			<div className="page-head">
 				<div>
 					<h1>{greeting()}, {firstName(profile.name)}</h1>
-					<p className="muted">Turn your conversations into winning proposals.</p>
+					<p className="muted">{hasProposals ? "Keep good conversations moving with a clear proposal." : "Turn the notes from your last conversation into a proposal."}</p>
 				</div>
 				<a className="btn" href="#/new">+ New proposal</a>
 			</div>
@@ -77,6 +78,18 @@ export function Dashboard({ profile }: { profile: Profile }) {
 				<a className="notice" href="#/profile">
 					<strong>Finish your business profile.</strong> Add what you do and your standard pricing, so every proposal already knows your business.
 				</a>
+			)}
+
+			{!hasProposals && !proposals.loading && (
+				<section className="welcome-panel">
+					<div className="welcome-copy">
+						<p className="eyebrow">Your next step</p>
+						<h2>Start with the conversation.<br />We’ll help shape the proposal.</h2>
+						<p className="muted">Paste the rough notes you already have. QuickPitch uses your business profile to organize the scope, pricing and next steps into a client-ready document.</p>
+						<a className="btn" href="#/new">Write your first proposal <span aria-hidden="true">→</span></a>
+					</div>
+					<div className="welcome-note"><span>AFTER THE CALL</span><p>new website<br />need SEO + CMS<br />around ₹2.8L<br />launch in 8 weeks</p><i>messy notes are fine</i></div>
+				</section>
 			)}
 
 			<div className="stats">
@@ -88,14 +101,14 @@ export function Dashboard({ profile }: { profile: Profile }) {
 
 			<section className="panel">
 				<div className="panel-head">
-					<h2>Recent proposals</h2>
+					<h2>{hasProposals ? "Recent proposals" : "Your proposals"}</h2>
 					{all.length > 5 && <a href="#/proposals">View all →</a>}
 				</div>
 				{proposals.error && <p className="error" role="alert">{proposals.error}</p>}
 				{!proposals.loading && (
 					<ProposalTable
 						items={all.slice(0, 5)}
-						empty={<>No proposals yet. <a href="#/new">Write your first one</a> from your call notes.</>}
+						empty={<>Your finished proposals and follow-ups will show up here.</>}
 					/>
 				)}
 			</section>
