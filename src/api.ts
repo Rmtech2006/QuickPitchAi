@@ -6,7 +6,9 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 		headers: body ? { "Content-Type": "application/json" } : undefined,
 		body: body ? JSON.stringify(body) : undefined,
 	});
-	const data = await res.json();
+	const data = await res.json().catch(() => {
+		throw new Error("QuickPitch's local server isn't running. Start it with `npm run dev`.");
+	});
 	if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
 	return data as T;
 }

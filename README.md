@@ -1,32 +1,33 @@
-# React + TypeScript + Vite
+# QuickPitch AI
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Turn rough sales-call notes into a clear, client-ready proposal in minutes.
 
-Currently, two official plugins are available:
+Type what you know straight after the call (half-sentences are fine). Pick a length (1, 6, 8 or 30 pages). QuickPitch writes the summary, scope, options, pricing, timeline and terms, then you save it as a branded PDF.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## How it works
 
-## React Compiler
+- **Runs on your computer.** Proposals are written with your own Claude plan through [Claude Code](https://claude.com/claude-code). No API key, no per-proposal cost.
+- **Knows your business.** Each account has a business profile: what you do, services and standard pricing, ideal clients, tone and standard terms. Every proposal uses it.
+- **Never invents numbers.** Prices and terms come from your notes first, then your profile's standard pricing, otherwise "To be confirmed".
+- **Your data stays local.** Accounts and proposals are saved in `data/db.json` on your machine (git-ignored).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Run it
 
-## Expanding the Oxlint configuration
+You need [Node.js](https://nodejs.org) 20+ and Claude Code, logged in.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+git clone https://github.com/Rmtech2006/QuickPitchAi.git
+cd QuickPitchAi
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Open http://localhost:5173, create an account, fill in your business profile, and write your first proposal.
+
+## Status
+
+Early version. Accounts are local and have no passwords, since the app runs only on your own machine. The hosted page at quickpitchai.vercel.app explains setup; it can't write proposals by itself.
+
+## Stack
+
+Vite, React, TypeScript, zod. Proposal generation runs `claude -p` with a JSON schema for structured output.

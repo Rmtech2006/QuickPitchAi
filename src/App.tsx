@@ -33,6 +33,12 @@ export const initials = (name: string) =>
 	name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
 export default function App() {
+	// The hosted build has no local server or Claude login, so it only explains how to run it.
+	if (import.meta.env.PROD) return <RunLocally />;
+	return <LocalApp />;
+}
+
+function LocalApp() {
 	const [profileId, setProfileId] = useState(() => load("qp.profile"));
 	const profile = useLoad(() => (profileId ? api.profile(profileId) : Promise.resolve(null)), [profileId]);
 
@@ -54,6 +60,7 @@ function SignIn({ onSignIn }: { onSignIn: (id: string) => void }) {
 	const [creating, setCreating] = useState(false);
 
 	if (profiles.loading) return null;
+	if (profiles.error) return <div className="auth"><p className="auth-card error" role="alert">{profiles.error}</p></div>;
 	if (creating || profiles.data?.length === 0)
 		return (
 			<div className="auth">
@@ -84,6 +91,32 @@ function SignIn({ onSignIn }: { onSignIn: (id: string) => void }) {
 					))}
 				</div>
 				<button type="button" className="btn ghost" onClick={() => setCreating(true)}>+ New account</button>
+			</div>
+		</div>
+	);
+}
+
+const REPO = "https://github.com/Rmtech2006/QuickPitchAi";
+
+// Shown on the hosted site: proposals are written by Claude on your own computer.
+function RunLocally() {
+	return (
+		<div className="auth">
+			<div className="auth-card wide">
+				<Logo />
+				<h1>QuickPitch runs on your computer</h1>
+				<p className="muted">
+					It writes proposals with your own Claude plan, through Claude Code on your machine. No API key, no per-proposal cost, and your client notes never leave your laptop.
+				</p>
+				<ol className="setup">
+					<li>Install <a href="https://claude.com/claude-code" target="_blank" rel="noreferrer">Claude Code</a> and log in with your Claude account.</li>
+					<li>Install <a href="https://nodejs.org" target="_blank" rel="noreferrer">Node.js</a> 20 or newer.</li>
+					<li>In a terminal, run:
+						<pre>git clone {REPO}.git{"\n"}cd QuickPitchAi{"\n"}npm install{"\n"}npm run dev</pre>
+					</li>
+					<li>Open <strong>http://localhost:5173</strong>.</li>
+				</ol>
+				<a className="btn" href={REPO} target="_blank" rel="noreferrer">View on GitHub</a>
 			</div>
 		</div>
 	);

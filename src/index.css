@@ -39,6 +39,11 @@ label.row select { width: auto; }
 .account small, .me small { display: block; color: var(--muted); font-size: 12.5px; }
 .avatar { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
 
+/* Hosted "run locally" page */
+.setup { padding-left: 20px; display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.setup a { color: var(--accent); font-weight: 600; }
+.setup pre { background: var(--nav); color: #e5e7eb; padding: 12px 14px; border-radius: 8px; font-size: 13px; overflow-x: auto; margin: 8px 0 0; }
+
 /* Shell */
 .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; letter-spacing: -.01em; color: #fff; }
 .logo span { color: var(--accent); }
