@@ -116,7 +116,8 @@ function RunLocally() {
 						<div className="hero-actions"><a className="btn" href="#how-it-works">How it works <span aria-hidden="true">↓</span></a><a className="text-link" href="mailto:hello@blyftit.com?subject=QuickPitch%20AI">Get in touch ↗</a></div>
 					</div>
 					<div className="hero-art" aria-label="Abstract blue grid inspired by a proposal taking shape">
-						<div className="grid-mark" aria-hidden="true"><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/></div>
+						<div className="preview-sheet" aria-hidden="true"><span className="preview-brand">qp<span>.</span></span><span className="preview-type">PROJECT PROPOSAL · 2026</span><i className="preview-line short"/><strong>Digital platform<br/>proposal</strong><span className="preview-client">Prepared for LoopUs</span><div className="preview-price"><small>PROJECT INVESTMENT</small><b>₹2,85,000 <small>+ GST</small></b></div><i className="preview-line"/><i className="preview-line medium"/><i className="preview-line short"/><footer>Scope · Schedule · Terms <span>01 / 08</span></footer></div>
+						<div className="preview-note" aria-hidden="true"><small>CALL NOTES</small><p>creator portal<br/>brand dashboard<br/>₹2.85L + GST<br/>8 weeks</p></div>
 						<div className="grid-caption"><span>NOTES</span><b>→</b><span>STRUCTURE</span><b>→</b><span>PROPOSAL</span><i>01 / 03</i></div>
 					</div>
 				</section>
