@@ -2,11 +2,11 @@ import { useState } from "react";
 import { generateProposal, type Length, type Proposal } from "./proposal";
 
 const MODELS = {
-	"claude-opus-5": "Claude Opus 5 (best)",
-	"claude-sonnet-5": "Claude Sonnet 5 (cheaper)",
+	opus: "Opus (best)",
+	sonnet: "Sonnet (faster, uses less of your plan)",
 };
 
-// Per-browser settings only; the API key never leaves this device except to Anthropic.
+// Per-browser settings.
 function load(key: string, fallback: string) {
 	try {
 		return localStorage.getItem(key) ?? fallback;
@@ -25,8 +25,7 @@ function useSetting(key: string, fallback: string) {
 }
 
 export default function App() {
-	const [apiKey, setApiKey] = useSetting("qp.key", "");
-	const [model, setModel] = useSetting("qp.model", "claude-opus-5");
+	const [model, setModel] = useSetting("qp.model", "opus");
 	const [company, setCompany] = useSetting("qp.company", "");
 	const [accent, setAccent] = useSetting("qp.accent", "#e8590c");
 	const [notes, setNotes] = useState("");
@@ -39,7 +38,7 @@ export default function App() {
 		setBusy(true);
 		setError("");
 		try {
-			setProposal(await generateProposal({ apiKey, model, notes, length, company }));
+			setProposal(await generateProposal({ model, notes, length, company }));
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -52,24 +51,7 @@ export default function App() {
 			<aside className="panel no-print">
 				<h1>QuickPitch</h1>
 
-				<details open={!apiKey}>
-					<summary>Settings</summary>
-					<label>
-						Anthropic API key
-						<input
-							type="password"
-							value={apiKey}
-							onChange={(e) => setApiKey(e.target.value.trim())}
-							placeholder="sk-ant-..."
-							autoComplete="off"
-						/>
-					</label>
-					<small>
-						Stored only in this browser. Get one at{" "}
-						<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">
-							console.anthropic.com
-						</a>
-					</small>
+				<details>
 					<label>
 						Model
 						<select value={model} onChange={(e) => setModel(e.target.value)}>
@@ -108,8 +90,8 @@ export default function App() {
 					))}
 				</fieldset>
 
-				<button type="button" onClick={generate} disabled={busy || !apiKey || !notes.trim()}>
-					{busy ? "Writing…" : "Generate proposal"}
+				<button type="button" onClick={generate} disabled={busy || !notes.trim()}>
+					{busy ? "Writing… (can take a minute)" : "Generate proposal"}
 				</button>
 				{error && <p className="error" role="alert">{error}</p>}
 				{proposal && (

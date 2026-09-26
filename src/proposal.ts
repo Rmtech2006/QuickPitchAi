@@ -1,5 +1,3 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 
 export const Proposal = z.object({
@@ -31,7 +29,14 @@ export const LENGTHS = {
 } as const;
 export type Length = keyof typeof LENGTHS;
 
-const SYSTEM = `You turn a founder's rough post-call notes into a client-ready business proposal.
+export type GenerateRequest = {
+	model: string;
+	notes: string;
+	length: Length;
+	company: string;
+};
+
+export const SYSTEM = `You turn a founder's rough post-call notes into a client-ready business proposal.
 Rules:
 - Use ONLY prices, timelines and payment terms stated in the notes. Never invent a number. If a price is missing, write "To be confirmed".
 - Keep currency and tax wording exactly as written (e.g. "₹2,85,000 + GST").
@@ -39,36 +44,19 @@ Rules:
 - Write in plain, confident business English. No hype words.
 - If the notes give one price, output one option. If they give several routes, output each as an option.`;
 
-export async function generateProposal(opts: {
-	apiKey: string;
-	model: string;
-	notes: string;
-	length: Length;
-	company: string;
-}): Promise<Proposal> {
-	// Key goes straight from the user's browser to Anthropic; it never touches our server.
-	const client = new Anthropic({
-		apiKey: opts.apiKey,
-		dangerouslyAllowBrowser: true,
-	});
+export function buildPrompt(r: GenerateRequest) {
 	const today = new Date().toISOString().slice(0, 10);
-	const stream = client.messages.stream({
-		model: opts.model,
-		max_tokens: 64000,
-		system: SYSTEM,
-		messages: [
-			{
-				role: "user",
-				content: `Prepared by: ${opts.company}\nToday: ${today}\nLength: ${LENGTHS[opts.length]}\n\nNotes:\n${opts.notes}`,
-			},
-		],
-		output_config: { format: zodOutputFormat(Proposal) },
+	return `Prepared by: ${r.company}\nToday: ${today}\nLength: ${LENGTHS[r.length]}\n\nNotes:\n${r.notes}`;
+}
+
+// Browser side: the local dev server runs the proposal through your own `claude` login.
+export async function generateProposal(r: GenerateRequest): Promise<Proposal> {
+	const res = await fetch("/api/generate", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(r),
 	});
-	const msg = await stream.finalMessage();
-	if (msg.stop_reason === "refusal")
-		throw new Error("The model declined these notes. Try rewording them.");
-	if (msg.stop_reason === "max_tokens")
-		throw new Error("Output was cut off. Try a shorter length.");
-	if (!msg.parsed_output) throw new Error("Could not read the model's output.");
-	return msg.parsed_output;
+	const data = await res.json() as { error?: string };
+	if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
+	return Proposal.parse(data);
 }
