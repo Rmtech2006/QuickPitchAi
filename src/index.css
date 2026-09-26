@@ -216,3 +216,29 @@ table.list td a:hover { color: var(--accent); }
 .welcome-note p { font: 13px/1.65 ui-monospace,monospace; margin: 12px 0; color: #45404f; }
 .welcome-note i { font: italic 12px Georgia,serif; color: #7656cb; }
 @media(max-width:700px) { .welcome-panel { grid-template-columns: 1fr; padding: 22px; }.welcome-note { display: none; } }
+
+/* Minimal public homepage override */
+.marketing { --paper: #faf9f6; --ink: #292923; --muted: #77766f; --line: #e7e5de; --accent: #6554a3; background: var(--paper); font-family: Inter, "Helvetica Neue", Arial, sans-serif; }
+.marketing-nav { max-width: 1120px; padding-top: 25px; padding-bottom: 25px; }
+.marketing .logo { font-size: 16px; font-weight: 700; letter-spacing: -.04em; }
+.marketing-nav nav a,.marketing-footer a { color: #67665f; font-size: 12px; }
+.marketing-main { max-width: 1120px; }
+.marketing .eyebrow { color: #77766f; font-size: 10px; letter-spacing: .09em; text-transform: none; font-weight: 600; }
+.marketing .btn { background: var(--ink); border-radius: 4px; padding: 11px 15px; }
+.marketing .text-link { font-size: 12px; font-weight: 550; border-bottom: 0; color: #55544d; }
+.hero { min-height: 535px; grid-template-columns: 1.1fr .9fr; gap: 6vw; padding-block: 60px 72px; }
+.hero h1,.section-intro h2 { font: 500 clamp(44px,5.2vw,62px)/1.06 Georgia, "Times New Roman", serif; letter-spacing: -.04em; }
+.hero h1 em { color: var(--ink); font-weight: 400; }
+.hero-lede { color: #66665f; font-size: 15px; max-width: 420px; line-height: 1.75; margin: 21px 0 24px; }
+.hero-art { height: 390px; max-width: 400px; justify-self: center; width: 100%; background: #f0eee8; border-radius: 0; }
+.proposal-card { position: relative; inset: auto; width: 265px; min-height: 338px; transform: none; box-shadow: 0 8px 30px #29292312; border: 1px solid #ebe9e2; padding: 22px; }
+.story-section { padding: 75px 3vw 92px; border-top: 1px solid var(--line); gap: 8vw; }
+.section-intro h2 { font-size: clamp(38px,4.1vw,49px); }
+.story-copy { padding-top: 10px; }
+.simple-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; }
+.simple-steps li { display: grid; grid-template-columns: 145px 1fr; gap: 18px; padding-bottom: 17px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.simple-steps li:last-child { border-bottom: 0; }.simple-steps strong { color: var(--ink); font-size: 12px; }.simple-steps span { color: #72726b; line-height: 1.6; }
+.marketing-footer { max-width: 1120px; border-top: 1px solid var(--line); padding-top: 20px; font-size: 10px; }
+.marketing-footer .logo { font-size: 14px; }
+@media(max-width:850px) { .hero { grid-template-columns: 1fr 1fr; }.story-section { padding-inline: 0; } }
+@media(max-width:600px) { .marketing-nav { padding-block: 18px; }.marketing-nav nav { order: initial; width: auto; margin-left: auto; }.marketing-nav>.text-link { display: none; }.hero { grid-template-columns: 1fr; min-height: auto; padding-block: 52px 55px; gap: 32px; }.hero h1 { font-size: 46px; }.hero-art { height: 350px; max-width: 100%; }.proposal-card { width: min(265px,80%); }.story-section { padding-block: 60px; }.simple-steps li { grid-template-columns: 1fr; gap: 5px; }.marketing-footer { align-items: flex-start; flex-direction: column; gap: 12px; } }

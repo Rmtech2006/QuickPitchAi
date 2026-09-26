@@ -104,52 +104,28 @@ function RunLocally() {
 		<div className="marketing">
 			<header className="marketing-nav">
 				<a className="marketing-brand" href="#top" aria-label="QuickPitch AI home"><Logo /></a>
-				<nav aria-label="Site navigation"><a href="#how-it-works">How it works</a><a href="#who-its-for">Who it’s for</a><a href="#about">About</a></nav>
-				<a className="btn" href={REPO} target="_blank" rel="noreferrer">Explore the project <span aria-hidden="true">↗</span></a>
+				<nav aria-label="Site navigation"><a href="#how-it-works">How it works</a><a href="#about">About</a></nav>
+				<a className="text-link" href={REPO} target="_blank" rel="noreferrer">View on GitHub ↗</a>
 			</header>
 			<main className="marketing-main" id="top">
 				<section className="hero">
 					<div className="hero-copy">
-						<p className="eyebrow">From the call to the client-ready proposal</p>
-						<h1>The proposal is the pitch.<br/><em>Send it while it’s fresh.</em></h1>
-						<p className="hero-lede">Turn rough notes, real pricing and a few good decisions into a clear proposal your client can say yes to.</p>
-						<div className="hero-actions"><a className="btn" href="#how-it-works">See how it works <span aria-hidden="true">↓</span></a><a className="text-link" href="#partners">We’re looking for design partners <span aria-hidden="true">↗</span></a></div>
-						<div className="hero-proof"><span className="proof-mark">✳</span><span><strong>Your judgment stays yours.</strong><br/>QuickPitch handles the writing and structure.</span></div>
+						<p className="eyebrow">Proposals, made simpler</p>
+						<h1>Good work deserves<br/>a <em>clear proposal.</em></h1>
+						<p className="hero-lede">QuickPitch turns your call notes into a client-ready proposal. You bring the details. It helps with the writing.</p>
+						<div className="hero-actions"><a className="btn" href="#how-it-works">How it works <span aria-hidden="true">↓</span></a><a className="text-link" href="mailto:hello@blyftit.com?subject=QuickPitch%20AI">Get in touch ↗</a></div>
 					</div>
-					<div className="hero-art" aria-label="A proposal coming together from call notes">
-						<div className="note-card"><span className="mini-label">AFTER THE CALL · 4:18 PM</span><p>LoopUs platform<br/>site not showing on Google<br/>creator portal + brand dashboard<br/>₹2.85L + GST · 8 weeks</p><div className="note-scribble">rough notes, real thinking</div></div>
-						<div className="flow-arrow" aria-hidden="true">↘</div>
-						<div className="proposal-card"><div className="proposal-top"><span className="proposal-brand">qp<span>.</span></span><span>PROPOSAL · 01</span></div><div className="proposal-rule"/><p className="proposal-kicker">A clearer path to growth</p><h2>LoopUs<br/>Digital Platform</h2><p className="proposal-sub">Prepared for LoopUs · September 2026</p><div className="proposal-detail"><span>Recommended investment</span><strong>₹2,85,000 <small>+ GST</small></strong></div><div className="proposal-lines"><i/><i/><i/></div><div className="proposal-footer"><span>Scope · Schedule · Terms</span><span>01 / 08</span></div></div>
-						<div className="time-stamp"><strong>90 sec</strong><span>of example<br/>call notes</span></div>
+					<div className="hero-art" aria-label="Preview of a clean client proposal">
+						<div className="proposal-card"><div className="proposal-top"><span className="proposal-brand">qp<span>.</span></span><span>PROPOSAL</span></div><div className="proposal-rule"/><p className="proposal-kicker">Prepared for LoopUs</p><h2>Digital platform<br/>proposal</h2><p className="proposal-sub">September 2026</p><div className="proposal-detail"><span>Project investment</span><strong>₹2,85,000 <small>+ GST</small></strong></div><div className="proposal-lines"><i/><i/><i/></div><div className="proposal-footer"><span>Scope · Schedule · Terms</span><span>01 / 08</span></div></div>
 					</div>
 				</section>
-
-				<div className="signal-strip"><span>BUILT FOR BESPOKE WORK</span><div>Development studios <b>✳</b> Design teams <b>✳</b> Consultants <b>✳</b> Agencies <b>✳</b> IT services</div></div>
 
 				<section className="story-section" id="how-it-works">
-					<div className="section-intro"><p className="eyebrow">The work is the assembly</p><h2>You already know<br/>what to recommend.</h2></div>
-					<div className="story-copy"><p>You know the client, the scope and what it should cost. But after the call, that thinking is scattered across messages and memory. Turning it into a proposal takes a day.</p><p>QuickPitch turns the pieces you already have into a considered document, so you can send the proposal while the conversation is still alive.</p><a className="text-link" href="#steps">Meet your new post-call ritual <span aria-hidden="true">↓</span></a></div>
+					<div className="section-intro"><p className="eyebrow">How it works</p><h2>From call notes<br/>to a clear proposal.</h2></div>
+					<div className="story-copy"><ol className="simple-steps"><li><strong>Add your notes</strong><span>Paste what you know about the client, scope and budget.</span></li><li><strong>Choose a format</strong><span>Quick quote, standard proposal or a fuller comparison.</span></li><li><strong>Review and send</strong><span>Check the details, make it yours and save as a PDF.</span></li></ol></div>
 				</section>
-
-				<section className="steps-section" id="steps">
-					<div className="steps-heading"><p className="eyebrow">Simple in. Ready to send.</p><h2>Keep the thinking.<br/><em>Skip the blank page.</em></h2></div>
-					<div className="steps-grid">
-						<article className="step-card"><span className="step-no">01</span><div className="step-icon notes-icon">Aa<span>+</span></div><h3>Drop in what you know</h3><p>Half-sentences straight after the call. No template to choose and no fields to fill in order.</p><div className="step-caption">YOUR WORDS, AS THEY ARE</div></article>
-						<article className="step-card"><span className="step-no">02</span><div className="step-icon structure-icon"><i/><i/><i/></div><h3>Let the deal shape it</h3><p>QuickPitch organizes the scope, options, recommendation, investment and next steps around the opportunity.</p><div className="step-caption">STRUCTURE THAT FITS</div></article>
-						<article className="step-card"><span className="step-no">03</span><div className="step-icon send-icon">↗</div><h3>Send a finished proposal</h3><p>A branded, consistent PDF that’s one page or eight. Choose the detail the deal deserves.</p><div className="step-caption">YOUR BRAND, READY TO SHARE</div></article>
-					</div>
-				</section>
-
-				<section className="control-section" id="who-its-for">
-					<div className="control-copy"><p className="eyebrow">Your expertise stays in charge</p><h2>QuickPitch writes<br/>the document.<br/><em>You keep the judgment.</em></h2><p>Your notes and business profile guide each proposal. Pricing and terms come from what you provide. If a number is missing, QuickPitch marks it for confirmation instead of making one up.</p><div className="control-points"><span>✓ Your prices and terms</span><span>✓ Your client context</span><span>✓ Your final say</span></div></div>
-					<div className="format-card"><div className="format-head"><span>ONE CONVERSATION</span><span>↗</span></div><div className="format-input">“Two routes: a focused site refresh, or a full platform with creator and brand portals. They’re losing leads from search. Budget around 2.85L, eight weeks.”</div><div className="format-divider"><span>SHAPE IT FOR THE DEAL</span></div><div className="format-options"><div><b>01</b><span><strong>Quick quote</strong><small>Clear scope and investment</small></span><i>1 page</i></div><div className="recommended-option"><b>02</b><span><strong>Compare options</strong><small>Trade-offs and a recommendation</small></span><i>8 pages</i></div><div><b>03</b><span><strong>Detailed proposal</strong><small>Method, milestones and terms</small></span><i>30 pages</i></div></div></div>
-				</section>
-
-				<section className="audience-section"><p className="eyebrow">Made for the work that changes every time</p><h2>Built for teams that quote bespoke work every week.</h2><div className="audience-list"><span>Development agencies</span><span>Design studios</span><span>Marketing teams</span><span>Architecture & interiors</span><span>Independent consultants</span><span>IT services</span><span>Event & production</span><span>Custom manufacturing</span></div></section>
-
-				<section className="partners-section" id="partners"><div><p className="eyebrow">Research phase · Feedback welcome</p><h2>Help shape the proposal tool<br/>you wish you already had.</h2><p>We’re looking for ten design partners to run a real proposal through QuickPitch AI and tell us where it falls short.</p></div><a className="btn light-btn" href="mailto:hello@blyftit.com?subject=QuickPitch%20AI%20design%20partner">Talk to us <span aria-hidden="true">↗</span></a></section>
 			</main>
-			<footer className="marketing-footer" id="about"><a className="marketing-brand" href="#top"><Logo /></a><span>A product of <a href="https://www.blyftit.com" target="_blank" rel="noreferrer">BLYFT Technologies ↗</a></span><span>QuickPitch AI · Research phase</span></footer>
+			<footer className="marketing-footer" id="about"><a className="marketing-brand" href="#top"><Logo /></a><span>Proposal writing for teams doing bespoke work.</span><span>A product of <a href="https://www.blyftit.com" target="_blank" rel="noreferrer">BLYFT Technologies ↗</a></span></footer>
 		</div>
 	);
 }
