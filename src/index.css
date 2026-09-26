@@ -263,3 +263,11 @@ table.list td a:hover { color: var(--accent); }
   .features { grid-template-columns: 1fr; }
   .marketing-footer { grid-template-columns: 1fr; }
 }
+
+/* Text-only QuickPitch wordmark */
+.logo { gap: 0; }
+.logo .wordmark-name { color: inherit; font-size: 1em; font-weight: 500; letter-spacing: -.075em; line-height: 1; }
+.logo .wordmark-name b { font-weight: 760; }
+.logo .wordmark-ai { align-self: flex-start; margin: 1px 0 0 6px; color: currentColor; opacity: .58; font-size: .42em; font-weight: 650; letter-spacing: .09em; line-height: 1; }
+.marketing .logo .wordmark-name,.marketing .logo .wordmark-ai { color: #17171b; }
+.sidebar .logo .wordmark-name,.sidebar .logo .wordmark-ai { color: #fff; }

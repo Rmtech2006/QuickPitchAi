@@ -19,11 +19,9 @@ export function useHashRoute() {
 
 export function Logo() {
 	return (
-		<div className="logo">
-			<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-				<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" />
-			</svg>
-			QuickPitch <span>AI</span>
+		<div className="logo" aria-label="QuickPitch AI">
+			<span className="wordmark-name"><b>quick</b>pitch</span>
+			<span className="wordmark-ai">AI</span>
 		</div>
 	);
 }
