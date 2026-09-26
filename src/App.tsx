@@ -1,184 +1,156 @@
-import { useState } from "react";
-import { generateProposal, type Length, type Proposal } from "./proposal";
+import { useEffect, useState } from "react";
+import { api, type ProfileSummary } from "./api";
+import {
+	ClientsPage, Dashboard, NewProposal, ProfileForm, ProposalPage, ProposalsPage, useLoad,
+} from "./pages";
+import type { Profile } from "./proposal";
 
-const MODELS = {
-	opus: "Opus (best)",
-	sonnet: "Sonnet (faster, uses less of your plan)",
-};
-
-// Per-browser settings.
-function load(key: string, fallback: string) {
+function load(key: string) {
 	try {
-		return localStorage.getItem(key) ?? fallback;
+		return localStorage.getItem(key);
 	} catch {
-		return fallback;
+		return null;
 	}
 }
-function save(key: string, value: string) {
+function save(key: string, value: string | null) {
 	try {
-		localStorage.setItem(key, value);
+		if (value === null) localStorage.removeItem(key);
+		else localStorage.setItem(key, value);
 	} catch {}
 }
-function useSetting(key: string, fallback: string) {
-	const [value, setValue] = useState(() => load(key, fallback));
-	return [value, (v: string) => (setValue(v), save(key, v))] as const;
+
+function useHashRoute() {
+	const [hash, setHash] = useState(location.hash);
+	useEffect(() => {
+		const on = () => setHash(location.hash);
+		addEventListener("hashchange", on);
+		return () => removeEventListener("hashchange", on);
+	}, []);
+	return hash.replace(/^#\/?/, "").split("/").filter(Boolean);
 }
 
-export default function App() {
-	const [model, setModel] = useSetting("qp.model", "opus");
-	const [company, setCompany] = useSetting("qp.company", "");
-	const [accent, setAccent] = useSetting("qp.accent", "#e8590c");
-	const [notes, setNotes] = useState("");
-	const [length, setLength] = useState<Length>(1);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState("");
-	const [proposal, setProposal] = useState<Proposal | null>(null);
+export const initials = (name: string) =>
+	name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
-	async function generate() {
-		setBusy(true);
-		setError("");
-		try {
-			setProposal(await generateProposal({ model, notes, length, company }));
-		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e));
-		} finally {
-			setBusy(false);
-		}
-	}
+export default function App() {
+	const [profileId, setProfileId] = useState(() => load("qp.profile"));
+	const profile = useLoad(() => (profileId ? api.profile(profileId) : Promise.resolve(null)), [profileId]);
+
+	const signIn = (id: string | null) => {
+		save("qp.profile", id);
+		setProfileId(id);
+		location.hash = "#/";
+	};
+
+	if (profile.loading) return null;
+	if (!profile.data) return <SignIn onSignIn={signIn} />;
+	return <Shell profile={profile.data} onSignOut={() => signIn(null)} onProfileSaved={profile.reload} />;
+}
+
+// ponytail: local accounts with no password, since this only runs on your own machine.
+// Add real auth (e.g. Supabase or Clerk) before hosting it for other people.
+function SignIn({ onSignIn }: { onSignIn: (id: string) => void }) {
+	const profiles = useLoad(api.profiles, []);
+	const [creating, setCreating] = useState(false);
+
+	if (profiles.loading) return null;
+	if (creating || profiles.data?.length === 0)
+		return (
+			<div className="auth">
+				<div className="auth-card wide">
+					<Logo />
+					<h1>Tell us about your business</h1>
+					<p className="muted">Do this once. Every proposal you generate will already know what you do, what you charge and how you like to sound.</p>
+					<ProfileForm
+						submitLabel="Create account"
+						onSave={async (input) => onSignIn((await api.createProfile(input)).id)}
+						onCancel={profiles.data?.length ? () => setCreating(false) : undefined}
+					/>
+				</div>
+			</div>
+		);
 
 	return (
-		<div className="app" style={{ "--accent": accent } as React.CSSProperties}>
-			<aside className="panel no-print">
-				<h1>QuickPitch</h1>
-
-				<details>
-					<label>
-						Model
-						<select value={model} onChange={(e) => setModel(e.target.value)}>
-							{Object.entries(MODELS).map(([id, name]) => (
-								<option key={id} value={id}>{name}</option>
-							))}
-						</select>
-					</label>
-					<label>
-						Your company
-						<input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Blyft" />
-					</label>
-					<label className="row">
-						Brand colour
-						<input type="color" value={accent} onChange={(e) => setAccent(e.target.value)} />
-					</label>
-				</details>
-
-				<label>
-					Notes from the call
-					<textarea
-						rows={12}
-						value={notes}
-						onChange={(e) => setNotes(e.target.value)}
-						placeholder={"loopus - creator platform\nproblem: site invisible to google\nbuild: marketing site, creator portal\nstarting at 2.85L + gst, payment 40/40/20\n8 weeks"}
-					/>
-				</label>
-
-				<fieldset>
-					<legend>Length</legend>
-					{([1, 6, 8, 30] as const).map((n) => (
-						<label key={n} className="row">
-							<input type="radio" checked={length === n} onChange={() => setLength(n)} />
-							{n} page{n === 1 ? "" : "s"}
-						</label>
+		<div className="auth">
+			<div className="auth-card">
+				<Logo />
+				<h1>Who's working?</h1>
+				<div className="accounts">
+					{profiles.data?.map((p: ProfileSummary) => (
+						<button type="button" key={p.id} className="account" onClick={() => onSignIn(p.id)}>
+							<span className="avatar" style={{ background: p.accent }}>{initials(p.name)}</span>
+							<span><strong>{p.name}</strong><small>{p.company}</small></span>
+						</button>
 					))}
-				</fieldset>
-
-				<button type="button" onClick={generate} disabled={busy || !notes.trim()}>
-					{busy ? "Writing… (can take a minute)" : "Generate proposal"}
-				</button>
-				{error && <p className="error" role="alert">{error}</p>}
-				{proposal && (
-					<button type="button" className="secondary" onClick={() => window.print()}>
-						Save as PDF
-					</button>
-				)}
-			</aside>
-
-			<main className="doc">
-				{proposal ? <ProposalView p={proposal} company={company} /> : (
-					<p className="empty no-print">Your proposal appears here.</p>
-				)}
-			</main>
+				</div>
+				<button type="button" className="btn ghost" onClick={() => setCreating(true)}>+ New account</button>
+			</div>
 		</div>
 	);
 }
 
-function ProposalView({ p, company }: { p: Proposal; company: string }) {
+function Logo() {
 	return (
-		<article>
-			<header>
-				<p className="eyebrow">{company} × {p.client}</p>
-				<h1>{p.title}</h1>
-				<p className="meta">{p.date} · Valid until {p.validUntil}</p>
-			</header>
+		<div className="logo">
+			<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+				<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" />
+			</svg>
+			QuickPitch <span>AI</span>
+		</div>
+	);
+}
 
-			<section>
-				<h2>Summary</h2>
-				<p>{p.executiveSummary}</p>
-			</section>
+const NAV = [
+	["", "Home"],
+	["new", "New proposal"],
+	["proposals", "Proposals"],
+	["clients", "Clients"],
+	["profile", "Business profile"],
+] as const;
 
-			{p.problems.length > 0 && (
-				<section>
-					<h2>Where things stand</h2>
-					<div className="grid">
-						{p.problems.map((x) => (
-							<div key={x.title} className="card"><h3>{x.title}</h3><p>{x.detail}</p></div>
-						))}
-					</div>
-				</section>
-			)}
+function Shell({ profile, onSignOut, onProfileSaved }: { profile: Profile; onSignOut: () => void; onProfileSaved: () => void }) {
+	const [page, id] = useHashRoute();
 
-			<section>
-				<h2>Scope</h2>
-				{p.scope.map((s) => (
-					<div key={s.title}>
-						<h3>{s.title}</h3>
-						<ul>{s.items.map((i) => <li key={i}>{i}</li>)}</ul>
-					</div>
-				))}
-			</section>
+	let content;
+	if (page === "new") content = <NewProposal key={id ?? "new"} profile={profile} fromId={id} />;
+	else if (page === "proposals" && id) content = <ProposalPage key={id} id={id} profile={profile} />;
+	else if (page === "proposals") content = <ProposalsPage profile={profile} />;
+	else if (page === "clients") content = <ClientsPage profile={profile} />;
+	else if (page === "profile")
+		content = (
+			<div className="page narrow">
+				<h1>Business profile</h1>
+				<p className="muted">This is what QuickPitch knows about you. It goes into every proposal.</p>
+				<ProfileForm
+					initial={profile}
+					submitLabel="Save profile"
+					onSave={async (input) => {
+						await api.updateProfile(profile.id, input);
+						onProfileSaved();
+					}}
+				/>
+			</div>
+		);
+	else content = <Dashboard profile={profile} />;
 
-			<section>
-				<h2>Investment</h2>
-				<div className="grid">
-					{p.options.map((o) => (
-						<div key={o.name} className="card price">
-							<h3>{o.name}</h3>
-							<p className="amount">{o.price}</p>
-							<p>{o.description}</p>
-						</div>
+	return (
+		<div className="shell" style={{ "--accent": profile.accent } as React.CSSProperties}>
+			<nav className="sidebar no-print" aria-label="Main">
+				<Logo />
+				<ul>
+					{NAV.map(([path, label]) => (
+						<li key={path}>
+							<a href={`#/${path}`} aria-current={(page ?? "") === path ? "page" : undefined}>{label}</a>
+						</li>
 					))}
+				</ul>
+				<div className="me">
+					<span className="avatar" style={{ background: profile.accent }}>{initials(profile.name)}</span>
+					<span><strong>{profile.name}</strong><small>{profile.company}</small></span>
+					<button type="button" className="link" onClick={onSignOut}>Switch</button>
 				</div>
-				{p.options.length > 1 && <p><strong>Recommendation:</strong> {p.recommendation}</p>}
-				<p><strong>Payment:</strong> {p.paymentTerms}</p>
-			</section>
-
-			{p.timeline.length > 0 && (
-				<section>
-					<h2>Timeline</h2>
-					<table>
-						<tbody>
-							{p.timeline.map((t) => (
-								<tr key={t.phase}><th>{t.phase}</th><td>{t.duration}</td><td>{t.detail}</td></tr>
-							))}
-						</tbody>
-					</table>
-				</section>
-			)}
-
-			<section>
-				<h2>Terms</h2>
-				<ul>{p.terms.map((t) => <li key={t}>{t}</li>)}</ul>
-			</section>
-
-			<footer><strong>Next step:</strong> {p.nextSteps}</footer>
-		</article>
+			</nav>
+			<main>{content}</main>
+		</div>
 	);
 }
