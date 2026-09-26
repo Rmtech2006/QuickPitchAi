@@ -229,6 +229,15 @@ table.list td a:hover { color: var(--accent); }
 .features h3 { margin: 0 0 8px; font-size: 18px; }
 .features p { margin: 0; font-size: 15px; }
 
+.examples { padding-block: 72px; }
+.examples h2 { font-size: clamp(30px, 3.8vw, 46px); margin: 12px 0 8px; }
+.examples-note { color: var(--muted); margin: 0 0 28px; }
+.example-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.example-grid figure { margin: 0; }
+.example-grid img { display: block; width: 100%; height: auto; aspect-ratio: 5 / 7; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+.example-grid figcaption { display: grid; margin-top: 10px; font-size: 14px; color: var(--muted); }
+.example-grid figcaption strong { color: var(--ink); font-size: 15px; }
+
 .contact-form { display: grid; gap: 16px; max-width: 520px; }
 .contact-form label { display: grid; gap: 6px; font-weight: 600; font-size: 15px; }
 .contact-form input, .contact-form textarea { border: 1px solid #8a8a94; border-radius: 6px; padding: 11px 12px; font: inherit; font-weight: 400; background: #fff; color: var(--ink); }
@@ -261,6 +270,7 @@ table.list td a:hover { color: var(--accent); }
   .preview-sheet { top: 7%; right: 50%; transform: translateX(50%) rotate(3deg); }
   .simple-steps li { grid-template-columns: 1fr; gap: 4px; }
   .features { grid-template-columns: 1fr; }
+  .example-grid { grid-template-columns: 1fr; max-width: 420px; }
   .marketing-footer { grid-template-columns: 1fr; }
 }
 

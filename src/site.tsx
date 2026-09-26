@@ -43,6 +43,7 @@ export function Site() {
 				<a className="marketing-brand" href="#/" aria-label="QuickPitch AI home"><Logo /></a>
 				<nav aria-label="Site">
 					<a href="#how-it-works">How it works</a>
+					<a href="#examples">Examples</a>
 					<a href="#get-started">Get started</a>
 					<a href="#contact">Contact</a>
 				</nav>
@@ -101,6 +102,20 @@ function Home() {
 				</ol>
 			</section>
 
+			<section className="examples" id="examples" aria-labelledby="examples-title">
+				<p className="eyebrow">Real proposals</p>
+				<h2 id="examples-title">Every proposal fits the deal.</h2>
+				<p className="examples-note">Written with QuickPitch from call notes, then designed by the team.</p>
+				<div className="example-grid">
+					{EXAMPLES.map((e) => (
+						<figure key={e.src}>
+							<img src={e.src} alt={e.alt} width={e.w} height={e.h} loading="lazy" decoding="async" />
+							<figcaption><strong>{e.title}</strong>{e.detail}</figcaption>
+						</figure>
+					))}
+				</div>
+			</section>
+
 			<section className="features" aria-labelledby="features-title">
 				<h2 id="features-title">Clear structure. Your voice.</h2>
 				<article><h3>Start with rough notes</h3><p>No template to fill out. Add the details from your conversation and keep moving.</p></article>
@@ -125,6 +140,15 @@ function Home() {
 		</>
 	);
 }
+
+const EXAMPLES = [
+	{ src: "/loopus.jpg", w: 919, h: 1300, title: "LoopUs × BLYFT", detail: "Website and platform proposal, one page",
+		alt: "One-page website proposal for LoopUs: three problems with the current site, four modules to build, ₹2,85,000 + GST starting investment and an 8-week timeline." },
+	{ src: "/superyou.png", w: 1304, h: 1846, title: "LoopUs × Superyou", detail: "Monthly influencer campaign, one page",
+		alt: "One-page influencer campaign proposal for Superyou: 50 creators a month across three product lines, ₹1,90,000 a month + GST and a four-week rollout." },
+	{ src: "/comet.png", w: 1266, h: 1776, title: "BLYFT × Comet", detail: "8-week social media campaign quotation",
+		alt: "Quotation for a Comet sneaker social media campaign: scope of work, ₹1,75,000 campaign fee, payment terms, an optional ₹45,000 a month retainer and add-ons." },
+];
 
 // ponytail: no backend on the hosted site, so the form opens the visitor's email app with the message filled in.
 // Nothing is stored or sent by this page. Swap for a form endpoint if you need submissions without an email app.
