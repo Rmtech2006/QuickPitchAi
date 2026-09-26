@@ -115,17 +115,19 @@ function RunLocally() {
 						<p className="hero-lede">QuickPitch turns your call notes into a client-ready proposal. You bring the details. It helps with the writing.</p>
 						<div className="hero-actions"><a className="btn" href="#how-it-works">How it works <span aria-hidden="true">↓</span></a><a className="text-link" href="mailto:hello@blyftit.com?subject=QuickPitch%20AI">Get in touch ↗</a></div>
 					</div>
-					<div className="hero-art" aria-label="Preview of a clean client proposal">
-						<div className="proposal-card"><div className="proposal-top"><span className="proposal-brand">qp<span>.</span></span><span>PROPOSAL</span></div><div className="proposal-rule"/><p className="proposal-kicker">Prepared for LoopUs</p><h2>Digital platform<br/>proposal</h2><p className="proposal-sub">September 2026</p><div className="proposal-detail"><span>Project investment</span><strong>₹2,85,000 <small>+ GST</small></strong></div><div className="proposal-lines"><i/><i/><i/></div><div className="proposal-footer"><span>Scope · Schedule · Terms</span><span>01 / 08</span></div></div>
+					<div className="hero-art" aria-label="Abstract blue grid inspired by a proposal taking shape">
+						<div className="grid-mark" aria-hidden="true"><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/><i/></div>
+						<div className="grid-caption"><span>NOTES</span><b>→</b><span>STRUCTURE</span><b>→</b><span>PROPOSAL</span><i>01 / 03</i></div>
 					</div>
 				</section>
 
 				<section className="story-section" id="how-it-works">
-					<div className="section-intro"><p className="eyebrow">How it works</p><h2>From call notes<br/>to a clear proposal.</h2></div>
-					<div className="story-copy"><ol className="simple-steps"><li><strong>Add your notes</strong><span>Paste what you know about the client, scope and budget.</span></li><li><strong>Choose a format</strong><span>Quick quote, standard proposal or a fuller comparison.</span></li><li><strong>Review and send</strong><span>Check the details, make it yours and save as a PDF.</span></li></ol></div>
+					<div className="section-intro"><p className="eyebrow">[ 01 / THE WORKFLOW ]</p><h2>Less time formatting.<br/>More time with clients.</h2></div>
+					<div className="story-copy"><ol className="simple-steps"><li><strong>01 &nbsp; Add your notes</strong><span>Client, scope, budget. Start with what you have.</span></li><li><strong>02 &nbsp; Choose a format</strong><span>Quick quote, standard proposal or comparison.</span></li><li><strong>03 &nbsp; Review and send</strong><span>Make the final call, then save as a PDF.</span></li></ol></div>
 				</section>
+				<section className="feature-row"><div className="feature-heading"><p className="eyebrow">[ 02 / BUILT FOR THE DETAILS ]</p><h2>Clear structure.<br/>Your voice.</h2></div><article><span className="feature-index">// 001</span><div className="feature-glyph glyph-note">Aa</div><h3>Start with rough notes</h3><p>No template to fill out. Add the details from your conversation and keep moving.</p></article><article><span className="feature-index">// 002</span><div className="feature-glyph glyph-stack"><i/><i/><i/></div><h3>Fit the proposal to the deal</h3><p>Choose the length and level of detail the client needs to make a decision.</p></article><article><span className="feature-index">// 003</span><div className="feature-glyph glyph-check">✓</div><h3>Keep control of the numbers</h3><p>Your pricing and terms stay yours. Review every proposal before it leaves your desk.</p></article></section>
 			</main>
-			<footer className="marketing-footer" id="about"><a className="marketing-brand" href="#top"><Logo /></a><span>Proposal writing for teams doing bespoke work.</span><span>A product of <a href="https://www.blyftit.com" target="_blank" rel="noreferrer">BLYFT Technologies ↗</a></span></footer>
+			<footer className="marketing-footer" id="about"><a className="marketing-brand" href="#top"><Logo /></a><span>Proposal writing for bespoke work.</span><span><a href="mailto:hello@blyftit.com">Contact ↗</a> &nbsp; · &nbsp; BLYFT Technologies</span></footer>
 		</div>
 	);
 }
