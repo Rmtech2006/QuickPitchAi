@@ -133,6 +133,7 @@ table.list td a:hover { color: var(--accent); }
 .doc .amount { font: 700 24px Georgia, serif; color: var(--accent); }
 .doc table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .doc th, .doc td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.doc p, .doc li, .doc td, .doc footer { white-space: pre-line; }
 .doc footer { margin-top: 28px; padding: 14px; background: var(--bg); border-left: 4px solid var(--accent); }
 
 /* Small screens */

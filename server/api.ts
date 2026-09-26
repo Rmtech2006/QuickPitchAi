@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
+import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
 import {
   buildPrompt, LENGTH_KEYS, MODELS, type Profile, ProfileInput, Proposal, STATUSES, SYSTEM, type StoredProposal,
@@ -10,7 +11,8 @@ import {
 
 // ponytail: one JSON file, whole-file rewrite per change. Fine for a few users on one machine;
 // move to SQLite/Postgres when this is hosted.
-const DIR = new URL('../data/', import.meta.url)
+// QP_DATA_DIR lets you run a separate copy (e.g. demo data) without touching your real data.
+const DIR = process.env.QP_DATA_DIR ? pathToFileURL(process.env.QP_DATA_DIR.replace(/\/?$/, '/')) : new URL('../data/', import.meta.url)
 const FILE = new URL('db.json', DIR)
 type Db = { profiles: Profile[]; proposals: StoredProposal[] }
 
