@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 // Public site for the hosted build: homepage, contact form and policy pages.
 
 const REPO = "https://github.com/Rmtech2006/QuickPitchAi";
-const EMAIL = "hello@blyftit.com";
+const EMAIL = "contact@blyftit.com";
 const COMPANY = "BLYFT Technologies";
 const UPDATED = "27 September 2026";
 
@@ -19,9 +19,8 @@ export function useHashRoute() {
 
 export function Logo() {
 	return (
-		<div className="logo" aria-label="QuickPitch AI">
-			<span className="wordmark-name"><b>quick</b>pitch</span>
-			<span className="wordmark-ai">AI</span>
+		<div className="logo">
+			<img src="/quickpitch-ai-wordmark.png" alt="QuickPitch AI" />
 		</div>
 	);
 }
@@ -80,7 +79,7 @@ function Home() {
 				</div>
 				<figure className="hero-art">
 					<div className="preview-sheet" aria-hidden="true">
-						<span className="preview-brand">qp<span>.</span></span>
+						<img className="preview-brand" src="/quickpitch-ai-wordmark.png" alt="" />
 						<i className="preview-line short" />
 						<strong>Digital platform<br />proposal</strong>
 						<span className="preview-client">Prepared for a sample client</span>
@@ -105,7 +104,7 @@ function Home() {
 			<section className="examples" id="examples" aria-labelledby="examples-title">
 				<p className="eyebrow">Real proposals</p>
 				<h2 id="examples-title">Every proposal fits the deal.</h2>
-				<p className="examples-note">Written with QuickPitch from call notes, then designed by the team.</p>
+				<p className="examples-note">Written and designed by QuickPitch AI from call notes.</p>
 				<div className="example-grid">
 					{EXAMPLES.map((e) => (
 						<figure key={e.src}>
