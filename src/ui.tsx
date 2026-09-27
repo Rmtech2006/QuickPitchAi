@@ -1,4 +1,6 @@
 import { type DependencyList, useCallback, useEffect, useState } from "react";
+import { api } from "./api";
+import { processLogo, type Tone } from "./logo";
 import type { Status, StoredProposal } from "./proposal";
 
 // Loads data once, keeps showing the old data while it reloads.
@@ -41,5 +43,76 @@ export function ProposalTable({ items, empty }: { items: StoredProposal[]; empty
 				))}
 			</tbody>
 		</table>
+	);
+}
+
+const MAX_LOGO_BYTES = 1_000_000;
+
+// If a client or profile has a website but no logo yet, fetch and clean one up. Never blocks saving.
+export async function withFoundLogo<T extends { logo?: string; logoTone?: Tone; website?: string }>(item: T): Promise<T> {
+	if (item.logo || !item.website?.trim()) return item;
+	try {
+		const found = await api.findLogo(item.website);
+		const { dataUrl, tone } = await processLogo(found.dataUrl);
+		return { ...item, logo: dataUrl, logoTone: tone };
+	} catch {
+		return item;
+	}
+}
+
+export function LogoPicker({ value, tone, website, onChange }: {
+	value: string;
+	tone: Tone;
+	website?: string;
+	onChange: (logo: string, tone: Tone) => void;
+}) {
+	const [status, setStatus] = useState<{ ok: boolean; text: string }>();
+	const [busy, setBusy] = useState(false);
+
+	async function use(dataUrl: string, from: string) {
+		const clean = await processLogo(dataUrl);
+		onChange(clean.dataUrl, clean.tone);
+		setStatus({ ok: true, text: from });
+	}
+	async function pick(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		e.target.value = "";
+		if (!file) return;
+		if (file.size > MAX_LOGO_BYTES) return setStatus({ ok: false, text: "Logo must be under 1 MB." });
+		const reader = new FileReader();
+		reader.onload = () => use(String(reader.result), "Uploaded. Background and padding removed automatically.").catch((err) => setStatus({ ok: false, text: String(err.message ?? err) }));
+		reader.readAsDataURL(file);
+	}
+	async function find() {
+		if (!website) return;
+		setBusy(true);
+		setStatus(undefined);
+		try {
+			await use((await api.findLogo(website)).dataUrl, "Found on the website. Check it looks right, or upload your own.");
+		} catch (err) {
+			setStatus({ ok: false, text: err instanceof Error ? err.message : String(err) });
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return (
+		<div className="logo-upload">
+			<div className={`logo-preview ${value ? tone : ""}`}>{value ? <img src={value} alt="Logo preview" /> : <span className="muted small">No logo</span>}</div>
+			<div className="logo-actions">
+				<div className="row-gap">
+					<label className="btn ghost file-btn">
+						{value ? "Replace" : "Upload logo"}
+						<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={pick} className="sr-only" />
+					</label>
+					<button type="button" className="btn ghost" disabled={!website?.trim() || busy} onClick={find}>
+						{busy ? "Looking…" : "Find on website"}
+					</button>
+					{value && <button type="button" className="link-btn muted" onClick={() => { onChange("", "dark"); setStatus(undefined); }}>Remove</button>}
+				</div>
+				<small className="muted block">PNG, JPG, WebP or SVG under 1 MB. We remove a solid background and extra padding for you.</small>
+				{status && <p className={`small ${status.ok ? "muted" : "error"}`} role="status">{status.text}</p>}
+			</div>
+		</div>
 	);
 }

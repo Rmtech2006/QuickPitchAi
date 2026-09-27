@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ClientFields } from "./clients";
-import { ProposalTable, useLoad } from "./ui";
+import { LogoPicker, ProposalTable, useLoad, withFoundLogo } from "./ui";
 import { api } from "./api";
 import { ProposalDoc } from "./ProposalDoc";
 import {
@@ -118,6 +118,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 	const [clientId, setClientId] = useState(startClient ?? "");
 	const [newClient, setNewClient] = useState<ClientInput>({ name: "" });
 	const [saving, setSaving] = useState(false);
+	const [productImage, setProductImage] = useState(false);
 	const [length, setLength] = useState<Length>(1);
 	const [model, setModel] = useState<Model>("opus");
 	const [error, setError] = useState("");
@@ -143,7 +144,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 		if (picked === NEW_CLIENT) {
 			setSaving(true);
 			try {
-				const c = await api.createClient(profile.id, newClient);
+				const c = await api.createClient(profile.id, await withFoundLogo(newClient));
 				clients.setData([...(clients.data ?? []), c]);
 				setClientId(c.id);
 			} catch (e) {
@@ -160,7 +161,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 		setStep(2);
 		setError("");
 		try {
-			const saved = await api.generate({ profileId: profile.id, clientId: clientId || undefined, notes, length, model });
+			const saved = await api.generate({ profileId: profile.id, clientId: clientId || undefined, notes, length, model, productImage });
 			location.hash = `#/proposals/${saved.id}`;
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
@@ -259,6 +260,10 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 								{Object.entries(MODELS).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
 							</select>
 						</label>
+						<label className="row check">
+							<input type="checkbox" checked={productImage} onChange={(e) => setProductImage(e.target.checked)} />
+							<span>Use a product photo from their website <small className="muted block">Off by default. Best for product brands.</small></span>
+						</label>
 						{error && <p className="error" role="alert">{error}</p>}
 						<div className="actions">
 							<button type="button" className="btn ghost" onClick={() => setStep(0)}>Back</button>
@@ -340,7 +345,7 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 			{p.html ? (
 				<iframe
 					ref={frame}
-					title={p.title}
+					aria-label={p.title}
 					className="designed"
 					srcDoc={p.html}
 					// No allow-scripts: the page comes from web research, so it may never run code.
@@ -396,64 +401,6 @@ const SECTIONS: { title: string; hint: string; fields: Field[] }[] = [
 	},
 ];
 
-const MAX_LOGO_BYTES = 1_000_000;
-
-// Light logos (white on transparent) need a dark chip on light pages, and vice versa.
-function logoTone(dataUrl: string): Promise<"light" | "dark"> {
-	return new Promise((resolve) => {
-		const img = new Image();
-		img.onload = () => {
-			const c = document.createElement("canvas");
-			c.width = c.height = 64;
-			const ctx = c.getContext("2d");
-			if (!ctx) return resolve("dark");
-			ctx.drawImage(img, 0, 0, 64, 64);
-			const px = ctx.getImageData(0, 0, 64, 64).data;
-			let sum = 0;
-			let n = 0;
-			for (let i = 0; i < px.length; i += 4)
-				if (px[i + 3] > 32) {
-					sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
-					n++;
-				}
-			resolve(n && sum / n > 160 ? "light" : "dark");
-		};
-		img.onerror = () => resolve("dark");
-		img.src = dataUrl;
-	});
-}
-
-function LogoUpload({ value, tone, onChange }: { value: string; tone: string; onChange: (dataUrl: string, tone: "light" | "dark") => void }) {
-	const [error, setError] = useState("");
-	function pick(e: React.ChangeEvent<HTMLInputElement>) {
-		const file = e.target.files?.[0];
-		e.target.value = "";
-		if (!file) return;
-		if (file.size > MAX_LOGO_BYTES) return setError("Logo must be under 1 MB.");
-		setError("");
-		const reader = new FileReader();
-		reader.onload = async () => {
-			const url = String(reader.result);
-			onChange(url, await logoTone(url));
-		};
-		reader.readAsDataURL(file);
-	}
-	return (
-		<div className="logo-upload">
-			<div className={`logo-preview ${value ? tone : ""}`}>{value ? <img src={value} alt="Your logo" /> : <span className="muted">No logo</span>}</div>
-			<div>
-				<label className="btn ghost file-btn">
-					{value ? "Replace logo" : "Upload logo"}
-					<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={pick} className="sr-only" />
-				</label>
-				{value && <button type="button" className="link-btn muted" onClick={() => onChange("", "dark")}>Remove</button>}
-				<small className="muted block">PNG, JPG, WebP or SVG, under 1 MB. A transparent PNG or SVG looks best on coloured pages.</small>
-				{error && <p className="error" role="alert">{error}</p>}
-			</div>
-		</div>
-	);
-}
-
 export function ProfileForm({ initial, submitLabel, onSave, onCancel }: {
 	initial?: ProfileInput;
 	submitLabel: string;
@@ -487,7 +434,7 @@ export function ProfileForm({ initial, submitLabel, onSave, onCancel }: {
 					<p className="muted small">{sec.hint}</p>
 					{sec.title === "Brand" && (
 						<>
-							<LogoUpload value={form.logo ?? ""} tone={form.logoTone ?? "dark"} onChange={(logo, tone) => setForm((f) => ({ ...f, logo, logoTone: tone }))} />
+							<LogoPicker value={form.logo ?? ""} tone={form.logoTone ?? "dark"} website={form.website} onChange={(logo, tone) => setForm((f) => ({ ...f, logo, logoTone: tone }))} />
 							<label className="row">
 								Brand colour
 								<input type="color" value={form.accent} onChange={(e) => set("accent", e.target.value)} />

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "./api";
 import type { Client, ClientInput, Profile } from "./proposal";
-import { ago, ProposalTable, StatusPill, useLoad } from "./ui";
+import { ago, LogoPicker, ProposalTable, StatusPill, useLoad, withFoundLogo } from "./ui";
 
 const EMPTY_CLIENT: ClientInput = { name: "", website: "", contactName: "", email: "", phone: "", notes: "" };
 
@@ -35,6 +35,15 @@ export function ClientFields({ value, onChange }: { value: ClientInput; onChange
 				Phone
 				<input type="tel" value={value.phone ?? ""} onChange={set("phone")} placeholder="+91 98765 43210" />
 			</label>
+			<div className="span-2 logo-field">
+				<span className="field-label">Client logo</span>
+				<LogoPicker
+					value={value.logo ?? ""}
+					tone={value.logoTone ?? "dark"}
+					website={value.website}
+					onChange={(logo, logoTone) => onChange({ ...value, logo, logoTone })}
+				/>
+			</div>
 			<label className="span-2">
 				Notes about this client
 				<textarea rows={3} value={value.notes ?? ""} onChange={set("notes")} placeholder="Bengaluru sneaker brand, MSME (no GST). Prefers WhatsApp." />
@@ -58,8 +67,10 @@ export function ClientForm({ initial, submitLabel, onSave, onCancel }: {
 		setBusy(true);
 		setMsg(undefined);
 		try {
-			await onSave(form);
-			setMsg({ ok: true, text: "Saved." });
+			const withLogo = await withFoundLogo(form);
+			setForm(withLogo);
+			await onSave(withLogo);
+			setMsg({ ok: true, text: withLogo.logo && !form.logo ? "Saved. We found their logo on the website." : "Saved." });
 		} catch (err) {
 			setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
 		} finally {

@@ -137,6 +137,11 @@ label.field small { font-weight: 400; }
 .link-btn.muted { color: var(--muted); font-weight: 500; }
 .logo-avatar { object-fit: contain; background: #fff; padding: 3px; }
 .logo-avatar.light, .logo-preview.light { background: #0b0b0f; }
+.logo-actions { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; }
+.row-gap { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.field-label { display: block; font-weight: 600; font-size: 13.5px; margin-bottom: 6px; }
+label.check { align-items: flex-start; font-weight: 500; }
+label.check input { width: auto; margin-top: 3px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-grid .span-2 { grid-column: 1 / -1; }
 .inset { margin-top: 14px; padding: 16px; border-radius: 12px; background: var(--bg); }

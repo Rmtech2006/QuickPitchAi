@@ -29,6 +29,7 @@ export const api = {
 	createClient: (profileId: string, c: ClientInput) => call<Client>("POST", "clients", { profileId, ...c }),
 	updateClient: (id: string, c: ClientInput) => call<Client>("PUT", `clients/${id}`, c),
 	deleteClient: (id: string) => call<{ ok: true }>("DELETE", `clients/${id}`, {}),
-	generate: (b: { profileId: string; clientId?: string; notes: string; length: Length; model: Model }) =>
+	findLogo: (url: string) => call<{ dataUrl: string; source: string }>("GET", `logo?url=${encodeURIComponent(url)}`),
+	generate: (b: { profileId: string; clientId?: string; notes: string; length: Length; model: Model; productImage: boolean }) =>
 		call<StoredProposal>("POST", "generate", b),
 };

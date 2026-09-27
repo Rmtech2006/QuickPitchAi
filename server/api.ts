@@ -9,7 +9,8 @@ import {
   type Client, ClientInput, AVAILABLE_LENGTHS, DesignedProposal, MODELS, type Profile, ProfileInput, STATUSES, type StoredProposal,
 } from '../src/proposal.ts'
 import { brandKit } from './brand.ts'
-import { buildDesignPrompt, DESIGN_SYSTEM, LOGO_PLACEHOLDER } from './design.ts'
+import { buildDesignPrompt, CLIENT_LOGO, DESIGN_SYSTEM, type LogoInfo, OUR_LOGO } from './design.ts'
+import { findLogo } from './logo.ts'
 
 // ponytail: one JSON file, whole-file rewrite per change. Fine for a few users on one machine;
 // move to SQLite/Postgres when this is hosted.
@@ -51,6 +52,7 @@ const GenerateBody = z.object({
   profileId: z.string(),
   notes: z.string().min(1).max(20000),
   clientId: z.string().optional(),
+  productImage: z.boolean().default(false),
   // Only the one-page proposal is live for now.
   length: z.literal([...AVAILABLE_LENGTHS] as [1]),
   model: z.enum(Object.keys(MODELS) as [keyof typeof MODELS]),
@@ -152,6 +154,13 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       save(db)
       return { ok: true }
     }
+    case 'GET logo': {
+      const site = query.get('url') ?? ''
+      if (!site) throw new HttpError(400, 'Add a website first')
+      const found = await findLogo(site).catch(() => null)
+      if (!found) throw new HttpError(404, "Couldn't find a logo on that website. Upload one instead.")
+      return found
+    }
     case 'GET proposals':
       return db.proposals
         .filter((p) => p.profileId === query.get('profileId'))
@@ -175,15 +184,25 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         clientUrl ? brandKit(clientUrl).catch(() => null) : null,
         owner.website ? brandKit(owner.website).catch(() => null) : null,
       ])
+      // Saved logos are already cleaned up and know their tone; otherwise look one up on the website.
+      const logoFor = async (saved: { logo: string; logoTone: 'light' | 'dark' } | null, site: string): Promise<LogoInfo> => {
+        if (saved?.logo) return { dataUrl: saved.logo, tone: saved.logoTone }
+        const found = site ? await findLogo(site).catch(() => null) : null
+        return found && { dataUrl: found.dataUrl, tone: 'unknown' }
+      }
+      const [ourLogo, clientLogo] = await Promise.all([logoFor(owner, owner.website), logoFor(forClient, clientUrl)])
       const result = await runClaude(
-        buildDesignPrompt({ profile: owner, client: forClient, notes: b.notes, length: b.length, clientUrl, clientKit, ownKit }),
+        buildDesignPrompt({
+          profile: owner, client: forClient, notes: b.notes, length: b.length, clientUrl, clientKit, ownKit,
+          ourLogo, clientLogo, productImage: b.productImage ? (clientKit?.heroImage ?? '') : '',
+        }),
         b.model,
       )
       const fresh = load() // re-read: other requests may have saved while Claude was writing
       const stored: StoredProposal = {
         id: randomUUID(), profileId: owner.id, notes: b.notes, length: b.length, clientId: forClient?.id, clientUrl,
         title: result.title, client: forClient?.name ?? result.client,
-        html: result.html.replaceAll(LOGO_PLACEHOLDER, owner.logo),
+        html: result.html.replaceAll(OUR_LOGO, ourLogo?.dataUrl ?? '').replaceAll(CLIENT_LOGO, clientLogo?.dataUrl ?? ''),
         status: 'Draft', createdAt: now, updatedAt: new Date().toISOString(),
       }
       fresh.proposals.push(stored)

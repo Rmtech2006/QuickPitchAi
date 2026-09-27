@@ -21,6 +21,14 @@ export const Proposal = z.object({
 });
 export type Proposal = z.infer<typeof Proposal>;
 
+// A logo as a data URL (images only, ~1 MB max), cleaned up in the browser (src/logo.ts).
+const LogoData = z
+	.string()
+	.max(1_400_000)
+	.regex(/^(data:image\/(png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+)?$/i)
+	.default("");
+const LogoTone = z.enum(["light", "dark"]).default("dark");
+
 // What each account tells us once, so every proposal already knows the business.
 export const ProfileInput = z.object({
 	name: z.string().min(1).max(100),
@@ -34,13 +42,8 @@ export const ProfileInput = z.object({
 	website: z.string().max(300).default(""),
 	email: z.string().max(200).default(""),
 	phone: z.string().max(50).default(""),
-	// Uploaded brand logo as a data URL (images only, ~1 MB max).
-	logo: z
-		.string()
-		.max(1_400_000)
-		.regex(/^(data:image\/(png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+)?$/i)
-		.default(""),
-	logoTone: z.enum(["light", "dark"]).default("dark"),
+	logo: LogoData,
+	logoTone: LogoTone,
 });
 export type ProfileInput = z.input<typeof ProfileInput>;
 export type Profile = z.output<typeof ProfileInput> & { id: string; createdAt: string };
@@ -52,6 +55,8 @@ export const ClientInput = z.object({
 	email: z.string().max(200).default(""),
 	phone: z.string().max(50).default(""),
 	notes: z.string().max(3000).default(""),
+	logo: LogoData,
+	logoTone: LogoTone,
 });
 export type ClientInput = z.input<typeof ClientInput>;
 export type Client = z.output<typeof ClientInput> & { id: string; profileId: string; createdAt: string };
