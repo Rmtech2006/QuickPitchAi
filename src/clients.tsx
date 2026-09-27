@@ -16,24 +16,24 @@ export function ClientFields({ value, onChange }: { value: ClientInput; onChange
 		<div className="form-grid">
 			<label>
 				Client name
-				<input required value={value.name} onChange={set("name")} placeholder="Comet" />
+				<input required value={value.name} onChange={set("name")} placeholder="Client or company name" />
 			</label>
 			<label>
 				Website
 				<small className="muted">We design the proposal in their brand from this.</small>
-				<input inputMode="url" value={value.website ?? ""} onChange={set("website")} placeholder="wearcomet.com" />
+				<input inputMode="url" value={value.website ?? ""} onChange={set("website")} placeholder="Their website address" />
 			</label>
 			<label>
 				Contact person
-				<input value={value.contactName ?? ""} onChange={set("contactName")} placeholder="Aarav Shah, Marketing Head" />
+				<input value={value.contactName ?? ""} onChange={set("contactName")} placeholder="Name and role" />
 			</label>
 			<label>
 				Email
-				<input type="email" value={value.email ?? ""} onChange={set("email")} placeholder="aarav@wearcomet.com" />
+				<input type="email" value={value.email ?? ""} onChange={set("email")} placeholder="Their email" />
 			</label>
 			<label>
 				Phone
-				<input type="tel" value={value.phone ?? ""} onChange={set("phone")} placeholder="+91 98765 43210" />
+				<input type="tel" value={value.phone ?? ""} onChange={set("phone")} placeholder="Their phone number" />
 			</label>
 			<div className="span-2 logo-field">
 				<span className="field-label">Client logo</span>
@@ -46,7 +46,7 @@ export function ClientFields({ value, onChange }: { value: ClientInput; onChange
 			</div>
 			<label className="span-2">
 				Notes about this client
-				<textarea rows={3} value={value.notes ?? ""} onChange={set("notes")} placeholder="Bengaluru sneaker brand, MSME (no GST). Prefers WhatsApp." />
+				<textarea rows={3} value={value.notes ?? ""} onChange={set("notes")} placeholder="Anything to remember, like location, tax status or how they like to be contacted" />
 			</label>
 		</div>
 	);

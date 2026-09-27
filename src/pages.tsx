@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ClientFields } from "./clients";
 import { LogoPicker, ProposalTable, useLoad, withFoundLogo } from "./ui";
 import { api } from "./api";
-import { ProposalDoc } from "./ProposalDoc";
 import {
 	type ClientInput, LENGTH_KEYS, LENGTHS, type Length, type Model, MODELS, type Profile, type ProfileInput,
 	STATUSES, type Status, AVAILABLE_LENGTHS, SITE_URL,
@@ -170,7 +169,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 		setStep(2);
 		setError("");
 		try {
-			const saved = await api.generate({ profileId: profile.id, clientId: clientId || undefined, notes, length, model, productImage });
+			const saved = await api.generate({ profileId: profile.id, clientId: clientId || undefined, proposalId: fromId, notes, length, model, productImage });
 			location.hash = `#/proposals/${saved.id}`;
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
@@ -214,7 +213,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 						rows={14}
 						value={notes}
 						onChange={(e) => setNotes(e.target.value)}
-						placeholder={"loopus - creator ecosystem platform\nproblem: site built on ai builder, invisible to google\nbuild: marketing site (seo, cms), creator portal, brand dashboard\nstarting at 2.85L + gst, payment 40/40/20\n8 weeks: discovery, build portals, qa + launch"}
+						placeholder="Paste your notes from the call: what they need, scope, price, timeline and payment terms."
 					/>
 					{error && <p className="error" role="alert">{error}</p>}
 					<div className="actions">
@@ -297,91 +296,6 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 	);
 }
 
-// Safety net for designs that run long: lay the page out taller, then zoom it back to exactly A4,
-// so nothing is cut off on screen or in the PDF.
-function fitPages(doc: Document) {
-	for (const page of doc.querySelectorAll<HTMLElement>(".page")) {
-		page.style.zoom = "";
-		page.style.width = "";
-		page.style.height = "";
-		const over = page.scrollHeight / page.clientHeight;
-		if (!(over > 1.005)) continue;
-		const z = 1 / over;
-		page.style.zoom = String(z);
-		page.style.width = `calc(210mm / ${z})`;
-		page.style.height = `calc(297mm / ${z})`;
-	}
-}
-
-export function ProposalPage({ id, profile }: { id: string; profile: Profile }) {
-	const item = useLoad(() => api.proposal(id), [id]);
-	const frame = useRef<HTMLIFrameElement>(null);
-	const [confirmDelete, setConfirmDelete] = useState(false);
-	// Grow the frame to the page's full height, so the proposal scrolls with the app.
-	const fitFrame = () => {
-		const doc = frame.current?.contentDocument;
-		if (!doc || !frame.current) return;
-		fitPages(doc);
-		frame.current.style.height = `${doc.documentElement.scrollHeight}px`;
-		// Web fonts can change text height after load: fit again once they're in.
-		doc.fonts?.ready.then(() => {
-			fitPages(doc);
-			if (frame.current) frame.current.style.height = `${doc.documentElement.scrollHeight}px`;
-		});
-	};
-	const printFrame = () => frame.current?.contentWindow?.print();
-	const p = item.data;
-	if (item.error || (p && p.profileId !== profile.id))
-		return <div className="page"><p className="error">Proposal not found.</p></div>;
-	if (!p) return null;
-
-	async function setStatus(status: Status) {
-		item.setData(await api.setStatus(id, status));
-	}
-
-	return (
-		<div className="page">
-			<div className="toolbar no-print">
-				<a href="#/proposals">← Proposals</a>
-				<label className="row">
-					Status
-					<select value={p.status} onChange={(e) => setStatus(e.target.value as Status)}>
-						{STATUSES.map((s) => <option key={s}>{s}</option>)}
-					</select>
-				</label>
-				<a className="btn ghost" href={`#/new/${p.id}`}>Regenerate</a>
-				{confirmDelete ? (
-					<span className="confirm">
-						Delete this proposal?
-						<button type="button" className="btn danger-btn" onClick={() => api.deleteProposal(p.id).then(() => (location.hash = "#/proposals"))}>Delete</button>
-						<button type="button" className="btn ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-					</span>
-				) : (
-					<button type="button" className="btn ghost" onClick={() => setConfirmDelete(true)}>Delete</button>
-				)}
-				<button type="button" className="btn" onClick={() => (p.html ? printFrame() : window.print())}>Save as PDF</button>
-			</div>
-			{p.html ? (
-				<iframe
-					ref={frame}
-					aria-label={p.title}
-					className="designed"
-					srcDoc={p.html}
-					// No allow-scripts: the page comes from web research, so it may never run code.
-					sandbox="allow-same-origin allow-modals"
-					onLoad={fitFrame}
-				/>
-			) : (
-				p.proposal && (
-					<div style={{ "--accent": profile.accent } as React.CSSProperties}>
-						<ProposalDoc p={p.proposal} company={profile.company} />
-					</div>
-				)
-			)}
-		</div>
-	);
-}
-
 const EMPTY: ProfileInput = {
 	name: "", company: "", website: "", email: "", phone: "", logo: "",
 	whatWeDo: "", services: "", idealClients: "", tone: "", defaultTerms: "", accent: "#f26b1d",
@@ -394,28 +308,28 @@ const SECTIONS: { title: string; hint: string; fields: Field[] }[] = [
 		title: "Brand",
 		hint: "Your logo and website appear on every proposal.",
 		fields: [
-			{ key: "company", label: "Company", placeholder: "BLYFT Technologies", required: true },
-			{ key: "website", label: "Website", placeholder: "www.blyftit.com", type: "url" },
+			{ key: "company", label: "Company", placeholder: "Company name", required: true },
+			{ key: "website", label: "Website", placeholder: "Your website address", type: "url" },
 		],
 	},
 	{
 		title: "Contact",
 		hint: "Shown in the footer of your proposals.",
 		fields: [
-			{ key: "name", label: "Your name", placeholder: "Ritish Maheshwari", required: true },
-			{ key: "email", label: "Email", placeholder: "contact@blyftit.com", type: "email" },
-			{ key: "phone", label: "Phone", placeholder: "+91 98765 43210", type: "tel" },
+			{ key: "name", label: "Your name", placeholder: "Full name", required: true },
+			{ key: "email", label: "Email", placeholder: "Email for proposals", type: "email" },
+			{ key: "phone", label: "Phone", placeholder: "Phone number", type: "tel" },
 		],
 	},
 	{
 		title: "About your business",
 		hint: "So every proposal already knows what you do and what you charge.",
 		fields: [
-			{ key: "whatWeDo", label: "What your business does", long: true, placeholder: "Growth consultancy for D2C brands and startups: websites, apps, performance marketing and content." },
-			{ key: "services", label: "Services and standard pricing", hint: "Used only when your call notes don't give a price.", long: true, placeholder: "Website (Next.js, SEO, CMS): from ₹1.5L + GST\nSocial media retainer: ₹45,000/month\nMeta + Google ads management: 15% of ad spend, min ₹25,000/month" },
-			{ key: "idealClients", label: "Who you work with", placeholder: "Founders of D2C brands, restaurants and early-stage startups in India" },
-			{ key: "tone", label: "How your proposals should sound", placeholder: "Direct and confident, short sentences, no jargon" },
-			{ key: "defaultTerms", label: "Standard terms", long: true, placeholder: "50% advance, 50% on delivery. Quote valid 15 days. Two revision rounds included. GST extra." },
+			{ key: "whatWeDo", label: "What your business does", long: true, placeholder: "What you offer and who it's for" },
+			{ key: "services", label: "Services and standard pricing", hint: "Used only when your call notes don't give a price.", long: true, placeholder: "One service per line, with its usual price" },
+			{ key: "idealClients", label: "Who you work with", placeholder: "Your typical clients" },
+			{ key: "tone", label: "How your proposals should sound", placeholder: "For example: direct and friendly" },
+			{ key: "defaultTerms", label: "Standard terms", long: true, placeholder: "Payment terms, validity, revisions, taxes" },
 		],
 	},
 ];

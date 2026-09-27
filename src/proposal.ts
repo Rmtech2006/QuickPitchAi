@@ -75,6 +75,11 @@ export type StoredProposal = {
 	length: Length;
 	clientId?: string;
 	clientUrl?: string;
+	reference?: string;
+	// Short WhatsApp / email note to send with the PDF.
+	message?: string;
+	// Every generate, edit, revision and restore adds one; the last is what `html` shows.
+	versions?: Version[];
 	title: string;
 	client: string;
 	// New proposals are a designed HTML page in the client's brand.
@@ -115,11 +120,14 @@ export const LENGTH_KEYS = [1, 6, 8, 30] as const;
 export const AVAILABLE_LENGTHS: readonly Length[] = [1];
 export const SITE_URL = "https://quickpitchai.vercel.app";
 
-// What Claude returns for a designed proposal.
+export type Version = { html: string; title: string; label: string; createdAt: string };
+
+// What Claude returns for a designed (or revised) proposal.
 export const DesignedProposal = z.object({
 	title: z.string(),
 	client: z.string(),
 	html: z.string(),
+	message: z.string(),
 });
 export type DesignedProposal = z.infer<typeof DesignedProposal>;
 

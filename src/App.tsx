@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type ProfileSummary } from "./api";
 import { ClientPage, ClientsPage } from "./clients";
-import { Dashboard, NewProposal, ProfileForm, ProposalPage, ProposalsPage } from "./pages";
+import { Dashboard, NewProposal, ProfileForm, ProposalsPage } from "./pages";
+import { ProposalPage } from "./proposalPage";
 import { LOGO_VERSION, useLoad, withFoundLogo } from "./ui";
 import type { Profile } from "./proposal";
 import { Logo, Site, useHashRoute } from "./site";
