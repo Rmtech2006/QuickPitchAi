@@ -179,6 +179,7 @@ a.plain { text-decoration: none; }
 table.list.clickable tbody tr { cursor: pointer; }
 table.list.clickable tbody tr:hover td { background: var(--bg); }
 .row-actions { text-align: right; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
 .row-actions .link-btn + .link-btn { margin-left: 12px; }
 .danger-text { color: #b42318 !important; }
 .confirm { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }

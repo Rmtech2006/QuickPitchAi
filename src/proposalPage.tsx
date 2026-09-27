@@ -41,7 +41,7 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 	const canvas = useRef<HTMLDivElement>(null);
 	const [viewing, setViewing] = useState<number | null>(null);
 	const [editing, setEditing] = useState(false);
-	const [busy, setBusy] = useState<"" | "pdf" | "save" | "revise" | "restore">("");
+	const [busy, setBusy] = useState<"" | "pdf" | "save" | "revise" | "restore" | "message">("");
 	const [note, setNote] = useState<{ ok: boolean; text: string }>();
 	const [instruction, setInstruction] = useState("");
 	const [model, setModel] = useState<Model>("opus");
@@ -171,6 +171,18 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 		}
 	}
 
+	async function writeMessage() {
+		setBusy("message");
+		try {
+			const next = await api.writeMessage(id);
+			item.setData({ ...p!, message: next.message });
+		} catch (e) {
+			fail(e);
+		} finally {
+			setBusy("");
+		}
+	}
+
 	const saveMessage = () => {
 		if (message !== (p.message ?? "")) api.saveMessage(id, message).then((next) => item.setData({ ...p, message: next.message }), fail);
 	};
@@ -268,6 +280,11 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 					<section className="panel">
 						<h2>Send</h2>
 						<p className="muted small">Download the PDF, then send it with this note.</p>
+						{!message && p.html && (
+							<button type="button" className="btn ghost" disabled={busy === "message"} onClick={writeMessage}>
+								{busy === "message" ? "Writing…" : "Write the message for me"}
+							</button>
+						)}
 						<textarea rows={6} value={message} onChange={(e) => setMessage(e.target.value)} onBlur={saveMessage} placeholder="A short note to send with the PDF" aria-label="Message to the client" />
 						<div className="row-gap">
 							<button type="button" className="btn ghost" disabled={!message} onClick={copy}>{copied ? "Copied" : "Copy"}</button>

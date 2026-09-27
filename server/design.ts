@@ -32,6 +32,11 @@ const TRANSCRIPT = `Meeting transcripts:
 const MESSAGE = `Message:
 - Also write "message": the short note sent with the PDF on WhatsApp or email, from our side to the client contact. At most 60 words: greet them by first name if known, one line on what the proposal covers, the price, and the next step. Same writing rules. No subject line, no signature block beyond our first name.`
 
+// The send note on its own (for proposals made before notes existed).
+export const MESSAGE_RULES = `${MESSAGE}
+
+${WRITING}`
+
 export const DESIGN_SYSTEM = `You are the proposal designer for the business in <our_business>. You write and design a client-ready proposal as ONE self-contained HTML document, styled in the CLIENT's own brand so it feels made for them.
 
 Research first:

@@ -27,6 +27,7 @@ export const api = {
 	saveEdit: (id: string, html: string) => call<StoredProposal>("POST", `proposals/${id}/versions`, { html }),
 	revise: (id: string, instruction: string, model: Model) => call<StoredProposal>("POST", `proposals/${id}/revise`, { instruction, model }),
 	restore: (id: string, version: number) => call<StoredProposal>("POST", `proposals/${id}/restore`, { version }),
+	writeMessage: (id: string) => call<StoredProposal>("POST", `proposals/${id}/message`, {}),
 	saveMessage: (id: string, message: string) => call<StoredProposal>("PUT", `proposals/${id}/message`, { message }),
 	// Returns the PDF file; errors come back as JSON.
 	pdf: async (html: string) => {

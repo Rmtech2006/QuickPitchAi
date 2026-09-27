@@ -10,7 +10,7 @@ import {
   type Client, ClientInput, AVAILABLE_LENGTHS, DesignedProposal, MODELS, type Profile, ProfileInput, STATUSES, type StoredProposal, type Version,
 } from '../src/proposal.ts'
 import { brandKit } from './brand.ts'
-import { buildDesignPrompt, CLIENT_LOGO, DESIGN_SYSTEM, type LogoInfo, OUR_LOGO, REVISE_SYSTEM } from './design.ts'
+import { buildDesignPrompt, CLIENT_LOGO, DESIGN_SYSTEM, type LogoInfo, MESSAGE_RULES, OUR_LOGO, REVISE_SYSTEM } from './design.ts'
 import { findLogo } from './logo.ts'
 
 // ponytail: one JSON file, whole-file rewrite per change. Fine for a few users on one machine;
@@ -76,6 +76,8 @@ const ReviseBody = z.object({ instruction: z.string().min(1).max(2000), model: z
 const RestoreBody = z.object({ version: z.number().int().min(0) })
 const MessageBody = z.object({ message: z.string().max(3000) })
 const PdfBody = z.object({ html: z.string().min(1).max(8_000_000) })
+const MessageOnly = z.object({ message: z.string() })
+const { $schema: _m, ...messageSchema } = z.toJSONSchema(MessageOnly)
 
 // Big inline images (logos, photos) are swapped for short placeholders while Claude revises a page.
 function stashImages(html: string) {
@@ -102,11 +104,15 @@ const summary = ({ html: _h, versions, proposal: _p, transcript: _t, ...rest }: 
 // Runs the `claude` CLI on this machine, so generation uses your own Claude login, no API key.
 // Claude may only read the web (WebFetch/WebSearch): no shell, no file access.
 function runClaude(prompt: string, model: string, system = DESIGN_SYSTEM): Promise<DesignedProposal> {
+  return runClaudeAs(prompt, model, system, DesignedProposal, designedSchema)
+}
+
+function runClaudeAs<T>(prompt: string, model: string, system: string, parser: z.ZodType<T>, jsonSchema: object): Promise<T> {
   return new Promise((resolve, reject) => {
     const claude = spawn('claude', [
       '-p',
       '--output-format', 'json',
-      '--json-schema', JSON.stringify(designedSchema),
+      '--json-schema', JSON.stringify(jsonSchema),
       '--system-prompt', system,
       '--model', model,
       '--tools', 'WebFetch,WebSearch',
@@ -127,7 +133,7 @@ function runClaude(prompt: string, model: string, system = DESIGN_SYSTEM): Promi
         const result = JSON.parse(out)
         if (result.is_error || !result.structured_output)
           return reject(new Error(result.result || 'Claude returned no proposal.'))
-        resolve(DesignedProposal.parse(result.structured_output))
+        resolve(parser.parse(result.structured_output))
       } catch (e) {
         reject(new Error(err.trim() || (e instanceof Error ? e.message : 'Could not read Claude output.')))
       }
@@ -236,6 +242,22 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const v = p.versions?.[n]
       if (!v) throw new HttpError(404, 'Version not found')
       addVersion(p, { html: v.html, title: v.title, label: `Restored v${n + 1}` })
+      save(db)
+      return p
+    }
+    case 'POST proposals/:id/message': {
+      // Write the send note for a proposal made before notes existed. The page itself is untouched.
+      const p = proposal(path[1])
+      const c = p.clientId ? db.clients.find((x) => x.id === p.clientId) : null
+      const pageText = (p.html ?? '').replace(/<style[\s\S]*?<\/style>|<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20000)
+      const out = await runClaudeAs(
+        `Client contact: ${c?.contactName || 'not given'}\n\n<proposal_text>\n${pageText}\n</proposal_text>`,
+        'sonnet',
+        `Write the short note that goes with this proposal PDF on WhatsApp or email.\n\n${MESSAGE_RULES}`,
+        MessageOnly,
+        messageSchema,
+      )
+      p.message = out.message
       save(db)
       return p
     }

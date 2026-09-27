@@ -44,7 +44,7 @@ export function ProposalTable({ items, empty, onDelete }: {
 						<td><a href={`#/proposals/${p.id}`} onClick={(e) => e.stopPropagation()}>{p.title}</a></td>
 						<td>{p.client}</td>
 						<td><StatusPill status={p.status} /></td>
-						<td className="muted">{ago(p.updatedAt)}</td>
+						<td className="muted nowrap">{ago(p.updatedAt)}</td>
 						{onDelete && (
 							<td className="row-actions" onClick={(e) => e.stopPropagation()}>
 								{confirming === p.id ? (
