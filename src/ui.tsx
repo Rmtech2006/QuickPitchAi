@@ -22,7 +22,7 @@ export function ago(iso: string) {
 }
 
 export function StatusPill({ status }: { status: Status }) {
-	return <span className={`pill ${status.toLowerCase()}`}>{status}</span>;
+	return <span className={`status ${status.toLowerCase()}`}>{status}</span>;
 }
 
 export function ProposalTable({ items, empty }: { items: StoredProposal[]; empty: React.ReactNode }) {

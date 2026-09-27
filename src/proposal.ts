@@ -79,8 +79,8 @@ export type StoredProposal = {
 
 export const LENGTHS = {
 	1: {
-		name: "Quick quote",
-		blurb: "Key details on one page. Good for quick, smaller deals.",
+		name: "Sales proposal",
+		blurb: "A designed one-pager in your client's brand, ready to send.",
 		prompt: "1-page quick quote: one tight paragraph per section, 2-4 scope items total, no fluff.",
 	},
 	6: {
@@ -102,15 +102,9 @@ export const LENGTHS = {
 export type Length = keyof typeof LENGTHS;
 export const LENGTH_KEYS = [1, 6, 8, 30] as const;
 
-// ponytail: keyword/size heuristic, swap for a cheap model call if suggestions feel off.
-export function suggestLength(notes: string): { length: Length; why: string } {
-	const prices = notes.match(/(₹|rs\.?|inr|\$)\s?[\d,.]+|[\d.]+\s?(l|lakh|lakhs|k|cr)\b/gi) ?? [];
-	if (/\b(option|vs|versus|or)\b/i.test(notes) && prices.length >= 2)
-		return { length: 8, why: "Your notes mention more than one priced route, so a side-by-side comparison with a recommendation fits best." };
-	if (notes.length > 1500)
-		return { length: 6, why: "Your notes cover a lot of scope, so a standard proposal gives each part room." };
-	return { length: 1, why: "Your notes describe one clear offer, so a single page keeps it focused and quick to approve." };
-}
+// Only the one-page sales proposal is live; longer formats show as "Coming soon".
+export const AVAILABLE_LENGTHS: readonly Length[] = [1];
+export const SITE_URL = "https://quickpitchai.vercel.app";
 
 // What Claude returns for a designed proposal.
 export const DesignedProposal = z.object({

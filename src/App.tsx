@@ -123,7 +123,7 @@ function Shell({ profile, onSignOut, onProfileSaved }: { profile: Profile; onSig
 	else content = <Dashboard profile={profile} />;
 
 	return (
-		<div className="shell" style={{ "--accent": profile.accent } as React.CSSProperties}>
+		<div className="shell">
 			<nav className="sidebar no-print" aria-label="Main">
 				<Logo />
 				<ul>

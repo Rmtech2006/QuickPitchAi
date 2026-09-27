@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
 import {
-  type Client, ClientInput, DesignedProposal, LENGTH_KEYS, MODELS, type Profile, ProfileInput, STATUSES, type StoredProposal,
+  type Client, ClientInput, AVAILABLE_LENGTHS, DesignedProposal, MODELS, type Profile, ProfileInput, STATUSES, type StoredProposal,
 } from '../src/proposal.ts'
 import { brandKit } from './brand.ts'
 import { buildDesignPrompt, DESIGN_SYSTEM, LOGO_PLACEHOLDER } from './design.ts'
@@ -51,7 +51,8 @@ const GenerateBody = z.object({
   profileId: z.string(),
   notes: z.string().min(1).max(20000),
   clientId: z.string().optional(),
-  length: z.literal([...LENGTH_KEYS]),
+  // Only the one-page proposal is live for now.
+  length: z.literal([...AVAILABLE_LENGTHS] as [1]),
   model: z.enum(Object.keys(MODELS) as [keyof typeof MODELS]),
 })
 const StatusBody = z.object({ status: z.enum(STATUSES) })

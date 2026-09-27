@@ -5,7 +5,7 @@ import { api } from "./api";
 import { ProposalDoc } from "./ProposalDoc";
 import {
 	type ClientInput, LENGTH_KEYS, LENGTHS, type Length, type Model, MODELS, type Profile, type ProfileInput,
-	STATUSES, type Status, suggestLength,
+	STATUSES, type Status, AVAILABLE_LENGTHS, SITE_URL,
 } from "./proposal";
 
 function greeting() {
@@ -137,7 +137,6 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 	const selected = clients.data?.find((c) => c.id === picked);
 	const canContinue = notes.trim() && (picked === NEW_CLIENT ? newClient.name.trim() : picked);
 
-	const suggestion = suggestLength(notes);
 
 	async function toStep2() {
 		setError("");
@@ -153,7 +152,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 			}
 			setSaving(false);
 		}
-		setLength(suggestion.length);
+		setLength(1);
 		setStep(1);
 	}
 
@@ -226,28 +225,34 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 					<section>
 						<p className="eyebrow">Step 2 of 3</p>
 						<h1>Choose proposal length</h1>
-						<p className="muted">One set of notes, any length. The format changes what gets written, not what you had to type.</p>
+						<p className="muted">Start with a one-page sales proposal, designed in your client's brand. Longer formats are on the way.</p>
 						<div className="lengths" role="radiogroup" aria-label="Proposal length">
 							{LENGTH_KEYS.map((n) => (
 								<button
 									type="button"
 									role="radio"
 									aria-checked={length === n}
+									aria-disabled={!AVAILABLE_LENGTHS.includes(n)}
+									disabled={!AVAILABLE_LENGTHS.includes(n)}
 									key={n}
 									className="length"
 									onClick={() => setLength(n)}
 								>
-									{suggestion.length === n && <span className="badge">Suggested</span>}
+									{AVAILABLE_LENGTHS.includes(n) ? <span className="badge">Available now</span> : <span className="badge soon">Coming soon</span>}
 									<strong>{n} page{n === 1 ? "" : "s"}</strong>
 									<span className="length-name">{LENGTHS[n].name}</span>
 									<small>{LENGTHS[n].blurb}</small>
 								</button>
 							))}
 						</div>
+						<p className="muted small">
+							6, 8 and 30-page proposals are coming soon. Follow updates at{" "}
+							<a href={SITE_URL} target="_blank" rel="noreferrer">quickpitchai.vercel.app</a>.
+						</p>
 					</section>
 					<aside className="panel recommend">
-						<h2>Our recommendation</h2>
-						<p>{suggestion.length === 8 ? "An" : "A"} {suggestion.length}-page {LENGTHS[suggestion.length].name.toLowerCase()}. {suggestion.why}</p>
+						<h2>One-page sales proposal</h2>
+						<p>We read your client's website, match their logo, colours and fonts, and write a single A4 page with the problem, what you'll do, the price and the next step.</p>
 						<label>
 							Writing model
 							<select value={model} onChange={(e) => setModel(e.target.value as Model)}>
@@ -343,7 +348,11 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 					onLoad={fitFrame}
 				/>
 			) : (
-				p.proposal && <ProposalDoc p={p.proposal} company={profile.company} />
+				p.proposal && (
+					<div style={{ "--accent": profile.accent } as React.CSSProperties}>
+						<ProposalDoc p={p.proposal} company={profile.company} />
+					</div>
+				)
 			)}
 		</div>
 	);
