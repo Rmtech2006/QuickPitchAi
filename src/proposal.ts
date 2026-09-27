@@ -78,6 +78,9 @@ export type StoredProposal = {
 	reference?: string;
 	// Short WhatsApp / email note to send with the PDF.
 	message?: string;
+	// Text of an uploaded meeting transcript, if one was used.
+	transcript?: string;
+	transcriptName?: string;
 	// Every generate, edit, revision and restore adds one; the last is what `html` shows.
 	versions?: Version[];
 	title: string;

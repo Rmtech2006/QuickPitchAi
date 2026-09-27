@@ -58,7 +58,10 @@ const { $schema: _, ...designedSchema } = z.toJSONSchema(DesignedProposal)
 
 const GenerateBody = z.object({
   profileId: z.string(),
-  notes: z.string().min(1).max(20000),
+  notes: z.string().max(20000).default(''),
+  // Plain text of an uploaded meeting transcript (read in the browser).
+  transcript: z.string().max(600_000).default(''),
+  transcriptName: z.string().max(300).default(''),
   clientId: z.string().optional(),
   // Regenerate: add a new version to this proposal instead of creating another one.
   proposalId: z.string().optional(),
@@ -66,7 +69,7 @@ const GenerateBody = z.object({
   // Only the one-page proposal is live for now.
   length: z.literal([...AVAILABLE_LENGTHS] as [1]),
   model: z.enum(Object.keys(MODELS) as [keyof typeof MODELS]),
-})
+}).refine((b) => b.notes.trim() || b.transcript.trim(), { message: 'Add call notes or a meeting transcript', path: ['notes'] })
 const StatusBody = z.object({ status: z.enum(STATUSES) })
 const EditBody = z.object({ html: z.string().min(1).max(8_000_000) })
 const ReviseBody = z.object({ instruction: z.string().min(1).max(2000), model: z.enum(Object.keys(MODELS) as [keyof typeof MODELS]) })
@@ -94,7 +97,7 @@ function addVersion(p: StoredProposal, v: Omit<Version, 'createdAt'>) {
 }
 
 // A list view doesn't need every page and version, which can be megabytes.
-const summary = ({ html: _h, versions, proposal: _p, ...rest }: StoredProposal) => ({ ...rest, versionCount: versions?.length ?? 0 })
+const summary = ({ html: _h, versions, proposal: _p, transcript: _t, ...rest }: StoredProposal) => ({ ...rest, versionCount: versions?.length ?? 0 })
 
 // Runs the `claude` CLI on this machine, so generation uses your own Claude login, no API key.
 // Claude may only read the web (WebFetch/WebSearch): no shell, no file access.
@@ -289,7 +292,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         buildDesignPrompt({
           profile: owner, client: forClient, notes: b.notes, length: b.length, clientUrl, clientKit, ownKit,
           ourLogo, clientLogo, productImage: b.productImage ? (clientKit?.heroImage ?? '') : '',
-          reference,
+          reference, transcript: b.transcript,
         }),
         b.model,
       )
@@ -297,13 +300,14 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const fresh = load() // re-read: other requests may have saved while Claude was writing
       const again = existing && fresh.proposals.find((x) => x.id === existing.id)
       if (again) {
-        Object.assign(again, { notes: b.notes, clientId: forClient?.id, clientUrl, client: forClient?.name ?? result.client, message: result.message })
+        Object.assign(again, { notes: b.notes, transcript: b.transcript, transcriptName: b.transcriptName, clientId: forClient?.id, clientUrl, client: forClient?.name ?? result.client, message: result.message })
         addVersion(again, { html, title: result.title, label: 'Regenerated' })
         save(fresh)
         return again
       }
       const stored: StoredProposal = {
-        id: randomUUID(), profileId: owner.id, notes: b.notes, length: b.length, clientId: forClient?.id, clientUrl, reference,
+        id: randomUUID(), profileId: owner.id, notes: b.notes, transcript: b.transcript || undefined, transcriptName: b.transcriptName || undefined,
+        length: b.length, clientId: forClient?.id, clientUrl, reference,
         title: result.title, client: forClient?.name ?? result.client, html, message: result.message,
         versions: [{ html, title: result.title, label: 'Generated', createdAt: new Date().toISOString() }],
         status: 'Draft', createdAt: now, updatedAt: new Date().toISOString(),

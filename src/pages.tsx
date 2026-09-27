@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ClientFields } from "./clients";
+import { readTranscript, TRANSCRIPT_ACCEPT, type Transcript } from "./transcript";
 import { LogoPicker, ProposalTable, useLoad, withFoundLogo } from "./ui";
 import { api } from "./api";
 import {
@@ -122,6 +123,8 @@ const NEW_CLIENT = "new";
 export function NewProposal({ profile, fromId, clientId: startClient }: { profile: Profile; fromId?: string; clientId?: string }) {
 	const [step, setStep] = useState(0);
 	const [notes, setNotes] = useState("");
+	const [transcript, setTranscript] = useState<Transcript | null>(null);
+	const [reading, setReading] = useState(false);
 	const clients = useLoad(() => api.clients(profile.id), [profile.id]);
 	const [clientId, setClientId] = useState(startClient ?? "");
 	const [newClient, setNewClient] = useState<ClientInput>({ name: "" });
@@ -136,6 +139,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 		if (fromId)
 			api.proposal(fromId).then((p) => {
 				setNotes(p.notes);
+				if (p.transcript) setTranscript({ name: p.transcriptName ?? "Meeting transcript", text: p.transcript, words: p.transcript.split(/\s+/).length });
 				if (p.clientId) setClientId(p.clientId);
 			}, () => {});
 	}, [fromId]);
@@ -144,7 +148,22 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 	const hasClients = (clients.data?.length ?? 0) > 0;
 	const picked = clientId || (clients.data && !hasClients ? NEW_CLIENT : "");
 	const selected = clients.data?.find((c) => c.id === picked);
-	const canContinue = notes.trim() && (picked === NEW_CLIENT ? newClient.name.trim() : picked);
+	const canContinue = (notes.trim() || transcript) && (picked === NEW_CLIENT ? newClient.name.trim() : picked);
+
+	async function pickTranscript(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		e.target.value = "";
+		if (!file) return;
+		setReading(true);
+		setError("");
+		try {
+			setTranscript(await readTranscript(file));
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setReading(false);
+		}
+	}
 
 
 	async function toStep2() {
@@ -169,7 +188,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 		setStep(2);
 		setError("");
 		try {
-			const saved = await api.generate({ profileId: profile.id, clientId: clientId || undefined, proposalId: fromId, notes, length, model, productImage });
+			const saved = await api.generate({ profileId: profile.id, clientId: clientId || undefined, proposalId: fromId, notes, transcript: transcript?.text ?? "", transcriptName: transcript?.name ?? "", length, model, productImage });
 			location.hash = `#/proposals/${saved.id}`;
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
@@ -207,13 +226,34 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 							<ClientFields value={newClient} onChange={setNewClient} />
 						</div>
 					)}
-					<label htmlFor="notes" className="field">Notes from the call <small className="muted">Half-sentences are fine.</small></label>
+					<div className="field">
+						<span className="field-label">Meeting transcript <small className="muted">Optional. From Google Meet, Zoom or Teams.</small></span>
+						{transcript ? (
+							<div className="file-chip">
+								<span>
+									<strong>{transcript.name}</strong>
+									<small className="muted block">{transcript.words.toLocaleString("en-IN")} words. We'll read the whole meeting and pick out the scope, prices and agreed next steps.</small>
+								</span>
+								<button type="button" className="link-btn muted" onClick={() => setTranscript(null)}>Remove</button>
+							</div>
+						) : (
+							<label className="dropzone">
+								<input type="file" accept={TRANSCRIPT_ACCEPT} onChange={pickTranscript} className="sr-only" />
+								<strong>{reading ? "Reading transcript…" : "Upload a meeting transcript"}</strong>
+								<small className="muted">PDF, Word, .vtt, .srt or .txt</small>
+							</label>
+						)}
+					</div>
+					<label htmlFor="notes" className="field">
+						{transcript ? "Anything to add or correct" : "Notes from the call"}{" "}
+						<small className="muted">{transcript ? "Optional. These override the transcript." : "Half-sentences are fine. Or upload a transcript above."}</small>
+					</label>
 					<textarea
 						id="notes"
-						rows={14}
+						rows={transcript ? 5 : 12}
 						value={notes}
 						onChange={(e) => setNotes(e.target.value)}
-						placeholder="Paste your notes from the call: what they need, scope, price, timeline and payment terms."
+						placeholder={transcript ? "For example, the final price or anything the transcript got wrong." : "Paste your notes from the call: what they need, scope, price, timeline and payment terms."}
 					/>
 					{error && <p className="error" role="alert">{error}</p>}
 					<div className="actions">
@@ -287,7 +327,7 @@ export function NewProposal({ profile, fromId, clientId: startClient }: { profil
 					<div className="spinner" aria-hidden="true" />
 					<h1>Designing your proposal…</h1>
 					<p className="muted">
-						{clients.data?.find((c) => c.id === clientId)?.website ? "Reading the client's website, picking up their brand, then writing and designing. " : "Writing and designing. "}
+						{transcript ? "Reading the meeting transcript, then " : ""}{clients.data?.find((c) => c.id === clientId)?.website ? "Reading the client's website, picking up their brand, then writing and designing. " : "Writing and designing. "}
 						Usually 1–4 minutes for one page, longer for more pages.
 					</p>
 				</section>
