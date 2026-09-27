@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
 import {
-  type Client, ClientInput, AVAILABLE_LENGTHS, DesignedProposal, MODELS, type Profile, ProfileInput, STATUSES, type StoredProposal, type Version,
+  type Client, ClientInput, AVAILABLE_LENGTHS, DesignedProposal, MODELS, type Profile, ProfileInput, type RunCost, STATUSES, type StoredProposal, type Version,
 } from '../src/proposal.ts'
 import { brandKit } from './brand.ts'
 import { buildDesignPrompt, CLIENT_LOGO, DESIGN_SYSTEM, type LogoInfo, MESSAGE_RULES, OUR_LOGO, REVISE_SYSTEM } from './design.ts'
@@ -103,11 +103,11 @@ const summary = ({ html: _h, versions, proposal: _p, transcript: _t, ...rest }: 
 
 // Runs the `claude` CLI on this machine, so generation uses your own Claude login, no API key.
 // Claude may only read the web (WebFetch/WebSearch): no shell, no file access.
-function runClaude(prompt: string, model: string, system = DESIGN_SYSTEM): Promise<DesignedProposal> {
+function runClaude(prompt: string, model: string, system = DESIGN_SYSTEM): Promise<{ value: DesignedProposal; cost: RunCost }> {
   return runClaudeAs(prompt, model, system, DesignedProposal, designedSchema)
 }
 
-function runClaudeAs<T>(prompt: string, model: string, system: string, parser: z.ZodType<T>, jsonSchema: object): Promise<T> {
+function runClaudeAs<T>(prompt: string, model: string, system: string, parser: z.ZodType<T>, jsonSchema: object): Promise<{ value: T; cost: RunCost }> {
   return new Promise((resolve, reject) => {
     const claude = spawn('claude', [
       '-p',
@@ -133,7 +133,18 @@ function runClaudeAs<T>(prompt: string, model: string, system: string, parser: z
         const result = JSON.parse(out)
         if (result.is_error || !result.structured_output)
           return reject(new Error(result.result || 'Claude returned no proposal.'))
-        resolve(parser.parse(result.structured_output))
+        const u = result.usage ?? {}
+        resolve({
+          value: parser.parse(result.structured_output),
+          cost: {
+            usd: Number(result.total_cost_usd) || 0,
+            inputTokens: u.input_tokens ?? 0,
+            outputTokens: u.output_tokens ?? 0,
+            cacheReadTokens: u.cache_read_input_tokens ?? 0,
+            cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
+            seconds: Math.round((result.duration_ms ?? 0) / 1000),
+          },
+        })
       } catch (e) {
         reject(new Error(err.trim() || (e instanceof Error ? e.message : 'Could not read Claude output.')))
       }
@@ -250,7 +261,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const p = proposal(path[1])
       const c = p.clientId ? db.clients.find((x) => x.id === p.clientId) : null
       const pageText = (p.html ?? '').replace(/<style[\s\S]*?<\/style>|<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20000)
-      const out = await runClaudeAs(
+      const { value: out } = await runClaudeAs(
         `Client contact: ${c?.contactName || 'not given'}\n\n<proposal_text>\n${pageText}\n</proposal_text>`,
         'sonnet',
         `Write the short note that goes with this proposal PDF on WhatsApp or email.\n\n${MESSAGE_RULES}`,
@@ -272,7 +283,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       if (!p.html) throw new HttpError(400, 'Only designed proposals can be revised. Regenerate this one first.')
       const b = ReviseBody.parse(await body())
       const { text, restore } = stashImages(p.html)
-      const result = await runClaude(
+      const { value: result, cost } = await runClaude(
         `Client website: ${p.clientUrl || 'not given'}\n\n<requested_change>\n${b.instruction}\n</requested_change>\n\n<current_message>\n${p.message ?? ''}\n</current_message>\n\n<proposal_html>\n${text}\n</proposal_html>`,
         b.model,
         REVISE_SYSTEM,
@@ -280,7 +291,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const fresh = load() // re-read: other requests may have saved while Claude was writing
       const target = fresh.proposals.find((x) => x.id === p.id)
       if (!target) throw new HttpError(404, 'Proposal was deleted while revising')
-      addVersion(target, { html: restore(result.html), title: result.title, label: `Revised: ${b.instruction.slice(0, 80)}` })
+      addVersion(target, { html: restore(result.html), title: result.title, label: `Revised: ${b.instruction.slice(0, 80)}`, cost })
       target.message = result.message
       save(fresh)
       return target
@@ -310,7 +321,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const [ourLogo, clientLogo] = await Promise.all([logoFor(owner, owner.website), logoFor(forClient, clientUrl)])
       const existing = b.proposalId ? proposal(b.proposalId) : null
       const reference = existing?.reference ?? proposalNumber(owner.company, forClient?.name ?? '', db.proposals.filter((p) => p.profileId === owner.id && p.clientId === forClient?.id).length + 1)
-      const result = await runClaude(
+      const { value: result, cost } = await runClaude(
         buildDesignPrompt({
           profile: owner, client: forClient, notes: b.notes, length: b.length, clientUrl, clientKit, ownKit,
           ourLogo, clientLogo, productImage: b.productImage ? (clientKit?.heroImage ?? '') : '',
@@ -323,7 +334,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const again = existing && fresh.proposals.find((x) => x.id === existing.id)
       if (again) {
         Object.assign(again, { notes: b.notes, transcript: b.transcript, transcriptName: b.transcriptName, clientId: forClient?.id, clientUrl, client: forClient?.name ?? result.client, message: result.message })
-        addVersion(again, { html, title: result.title, label: 'Regenerated' })
+        addVersion(again, { html, title: result.title, label: 'Regenerated', cost })
         save(fresh)
         return again
       }
@@ -331,7 +342,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         id: randomUUID(), profileId: owner.id, notes: b.notes, transcript: b.transcript || undefined, transcriptName: b.transcriptName || undefined,
         length: b.length, clientId: forClient?.id, clientUrl, reference,
         title: result.title, client: forClient?.name ?? result.client, html, message: result.message,
-        versions: [{ html, title: result.title, label: 'Generated', createdAt: new Date().toISOString() }],
+        versions: [{ html, title: result.title, label: 'Generated', createdAt: new Date().toISOString(), cost }],
         status: 'Draft', createdAt: now, updatedAt: new Date().toISOString(),
       }
       fresh.proposals.push(stored)

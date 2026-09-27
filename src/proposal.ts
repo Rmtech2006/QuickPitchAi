@@ -123,7 +123,13 @@ export const LENGTH_KEYS = [1, 6, 8, 30] as const;
 export const AVAILABLE_LENGTHS: readonly Length[] = [1];
 export const SITE_URL = "https://quickpitchai.vercel.app";
 
-export type Version = { html: string; title: string; label: string; createdAt: string };
+// What one Claude run used, as reported by the Claude CLI (cost is the pay-per-use API equivalent;
+// on a Claude subscription it comes out of your plan's usage instead).
+export type RunCost = { usd: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number; seconds: number };
+// ponytail: fixed exchange rate for a rough rupee figure; update it now and then.
+export const USD_TO_INR = 88;
+export const costLabel = (c: RunCost) => `$${c.usd.toFixed(2)} (about ₹${Math.round(c.usd * USD_TO_INR)}) at API rates`;
+export type Version = { html: string; title: string; label: string; createdAt: string; cost?: RunCost };
 
 // What Claude returns for a designed (or revised) proposal.
 export const DesignedProposal = z.object({

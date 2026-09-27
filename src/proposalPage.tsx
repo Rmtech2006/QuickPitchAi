@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { ProposalDoc } from "./ProposalDoc";
-import { type Client, type Model, MODELS, type Profile, STATUSES, type Status } from "./proposal";
+import { type Client, costLabel, type Model, MODELS, type Profile, STATUSES, type Status } from "./proposal";
 import { ago, useLoad } from "./ui";
 
 // Safety net for designs that run long: lay the page out taller, then zoom it back to exactly A4,
@@ -305,10 +305,12 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 										<button type="button" onClick={() => setViewing(i === current ? null : i)} disabled={editing}>
 											<strong>v{i + 1}</strong> {versions[i].label}
 											<small className="muted block">{ago(versions[i].createdAt)}{i === current ? " · latest" : ""}</small>
+											{versions[i].cost && <small className="muted block">{costLabel(versions[i].cost!)}</small>}
 										</button>
 									</li>
 								))}
 							</ol>
+							<small className="muted">Costs come out of your Claude plan's usage, not a separate bill.</small>
 							<a className="link-btn muted" href={`#/new/${p.id}`}>Regenerate from notes</a>
 						</section>
 					)}
