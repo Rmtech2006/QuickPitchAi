@@ -31,9 +31,30 @@ export const ProfileInput = z.object({
 	tone: z.string().max(500),
 	defaultTerms: z.string().max(3000),
 	accent: z.string().regex(/^#[0-9a-f]{6}$/i),
+	website: z.string().max(300).default(""),
+	email: z.string().max(200).default(""),
+	phone: z.string().max(50).default(""),
+	// Uploaded brand logo as a data URL (images only, ~1 MB max).
+	logo: z
+		.string()
+		.max(1_400_000)
+		.regex(/^(data:image\/(png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+)?$/i)
+		.default(""),
+	logoTone: z.enum(["light", "dark"]).default("dark"),
 });
-export type ProfileInput = z.infer<typeof ProfileInput>;
-export type Profile = ProfileInput & { id: string; createdAt: string };
+export type ProfileInput = z.input<typeof ProfileInput>;
+export type Profile = z.output<typeof ProfileInput> & { id: string; createdAt: string };
+
+export const ClientInput = z.object({
+	name: z.string().min(1).max(200),
+	website: z.string().max(300).default(""),
+	contactName: z.string().max(200).default(""),
+	email: z.string().max(200).default(""),
+	phone: z.string().max(50).default(""),
+	notes: z.string().max(3000).default(""),
+});
+export type ClientInput = z.input<typeof ClientInput>;
+export type Client = z.output<typeof ClientInput> & { id: string; profileId: string; createdAt: string };
 
 export const STATUSES = ["Draft", "Sent", "Won", "Lost"] as const;
 export type Status = (typeof STATUSES)[number];
@@ -43,7 +64,14 @@ export type StoredProposal = {
 	profileId: string;
 	notes: string;
 	length: Length;
-	proposal: Proposal;
+	clientId?: string;
+	clientUrl?: string;
+	title: string;
+	client: string;
+	// New proposals are a designed HTML page in the client's brand.
+	html?: string;
+	// Older proposals were structured text rendered by ProposalDoc.
+	proposal?: Proposal;
 	status: Status;
 	createdAt: string;
 	updatedAt: string;
@@ -84,33 +112,13 @@ export function suggestLength(notes: string): { length: Length; why: string } {
 	return { length: 1, why: "Your notes describe one clear offer, so a single page keeps it focused and quick to approve." };
 }
 
+// What Claude returns for a designed proposal.
+export const DesignedProposal = z.object({
+	title: z.string(),
+	client: z.string(),
+	html: z.string(),
+});
+export type DesignedProposal = z.infer<typeof DesignedProposal>;
+
 export const MODELS = { opus: "Opus (best writing)", sonnet: "Sonnet (faster)" } as const;
 export type Model = keyof typeof MODELS;
-
-export const SYSTEM = `You turn a founder's rough post-call notes into a client-ready business proposal, written as the business described in the profile.
-Rules:
-- Prices, timelines and payment terms come from the notes first. If the notes have none, you may use the business profile's standard pricing or terms only where they clearly apply. Otherwise write "To be confirmed". Never invent a number.
-- Keep currency and tax wording exactly as written (e.g. "₹2,85,000 + GST").
-- Use the profile to describe the business's capabilities and to match its tone. Never claim anything the profile or notes don't support.
-- The executive summary must stand alone for a decision-maker who reads nothing else.
-- Write in plain, confident business English. No hype words.
-- If the notes give one price, output one option. If they give several routes, output each as an option.`;
-
-export function buildPrompt(p: ProfileInput, notes: string, length: Length) {
-	const today = new Date().toISOString().slice(0, 10);
-	return `<business_profile>
-Company: ${p.company}
-What we do: ${p.whatWeDo}
-Services and standard pricing: ${p.services}
-Ideal clients: ${p.idealClients}
-Tone: ${p.tone}
-Standard terms: ${p.defaultTerms}
-</business_profile>
-
-Today: ${today}
-Length: ${LENGTHS[length].prompt}
-
-<call_notes>
-${notes}
-</call_notes>`;
-}

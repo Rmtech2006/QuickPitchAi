@@ -1,4 +1,4 @@
-import type { Length, Model, Profile, ProfileInput, Status, StoredProposal } from "./proposal";
+import type { Client, ClientInput, Length, Model, Profile, ProfileInput, Status, StoredProposal } from "./proposal";
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
 	const res = await fetch(`/api/${path}`, {
@@ -24,6 +24,11 @@ export const api = {
 		call<StoredProposal[]>("GET", `proposals?profileId=${encodeURIComponent(profileId)}`),
 	proposal: (id: string) => call<StoredProposal>("GET", `proposals/${id}`),
 	setStatus: (id: string, status: Status) => call<StoredProposal>("PATCH", `proposals/${id}`, { status }),
-	generate: (b: { profileId: string; notes: string; length: Length; model: Model }) =>
+	clients: (profileId: string) => call<Client[]>("GET", `clients?profileId=${encodeURIComponent(profileId)}`),
+	client: (id: string) => call<Client>("GET", `clients/${id}`),
+	createClient: (profileId: string, c: ClientInput) => call<Client>("POST", "clients", { profileId, ...c }),
+	updateClient: (id: string, c: ClientInput) => call<Client>("PUT", `clients/${id}`, c),
+	deleteClient: (id: string) => call<{ ok: true }>("DELETE", `clients/${id}`, {}),
+	generate: (b: { profileId: string; clientId?: string; notes: string; length: Length; model: Model }) =>
 		call<StoredProposal>("POST", "generate", b),
 };

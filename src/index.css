@@ -111,7 +111,36 @@ table.list td a:hover { color: var(--accent); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
 
+/* Designed proposal (A4 page in the client's brand) */
+.designed { display: block; width: 210mm; max-width: 100%; min-height: 297mm; margin: 0 auto; border: 0; background: #fff; box-shadow: 0 1px 3px #0000001a, 0 8px 24px #0000000d; }
+label.field { margin-top: 14px; }
+label.field small { font-weight: 400; }
+.panel label.field + textarea { margin-top: 6px; }
+
 /* Profile form */
+.form-section { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 18px; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.form-section legend { font-weight: 700; font-size: 15px; padding: 0 6px; }
+.form-section > p.small { margin: -8px 0 0; }
+.small { font-size: 13px; }
+.block { display: block; }
+.logo-upload { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.logo-preview { width: 140px; height: 72px; border: 1px dashed var(--line); border-radius: 10px; display: grid; place-items: center; background: repeating-conic-gradient(#f3f4f6 0 25%, #fff 0 50%) 0 0 / 14px 14px; overflow: hidden; }
+.logo-preview img { max-width: 120px; max-height: 56px; object-fit: contain; }
+.file-btn { cursor: pointer; margin-right: 10px; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }
+.link-btn.muted { color: var(--muted); font-weight: 500; }
+.logo-avatar { object-fit: contain; background: #fff; padding: 3px; }
+.logo-avatar.light, .logo-preview.light { background: #0b0b0f; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid .span-2 { grid-column: 1 / -1; }
+.inset { margin-top: 14px; padding: 16px; border-radius: 12px; background: var(--bg); }
+.two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.panel h2 + .form, .panel h2 + p { margin-top: 12px; }
+.danger { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.danger-btn { background: #b42318; }
+a.plain { text-decoration: none; }
+a.plain:hover { color: var(--accent); }
+@media (max-width: 860px) { .form-grid, .two-col { grid-template-columns: 1fr; } }
 .form { display: flex; flex-direction: column; gap: 16px; }
 .form small { font-weight: 400; }
 
@@ -196,9 +225,8 @@ table.list td a:hover { color: var(--accent); }
 .hero-art { margin: 0; position: relative; min-height: 440px; background: linear-gradient(160deg, var(--paper) 0 27%, #3425df 27.2%); }
 .hero-art figcaption { position: absolute; top: calc(100% + 8px); left: 0; right: 0; color: var(--muted); font-size: 13px; }
 .preview-sheet { position: absolute; right: 10%; top: 9%; width: min(62%, 300px); display: flex; flex-direction: column; gap: 12px; padding: 22px 20px; background: #fff; color: var(--ink); box-shadow: 0 22px 55px #17144b55; transform: rotate(3deg); }
-.preview-brand { font: 700 18px Georgia, serif; letter-spacing: -.07em; }
-.preview-brand span, .preview-line.short { color: #3425df; background: #3425df; }
-.preview-brand span { background: none; }
+.preview-brand { display: block; width: 48px; height: auto; object-fit: contain; }
+.preview-line.short { background: #3425df; }
 .preview-line { display: block; height: 4px; background: #ececf0; }
 .preview-line.medium { width: 76%; }
 .preview-line.short { width: 43%; }
@@ -274,10 +302,10 @@ table.list td a:hover { color: var(--accent); }
   .marketing-footer { grid-template-columns: 1fr; }
 }
 
-/* Text-only QuickPitch wordmark */
+/* QuickPitch AI wordmark image */
 .logo { gap: 0; }
-.logo .wordmark-name { color: inherit; font-size: 1em; font-weight: 500; letter-spacing: -.075em; line-height: 1; }
-.logo .wordmark-name b { font-weight: 760; }
-.logo .wordmark-ai { align-self: flex-start; margin: 1px 0 0 6px; color: currentColor; opacity: .58; font-size: .42em; font-weight: 650; letter-spacing: .09em; line-height: 1; }
-.marketing .logo .wordmark-name,.marketing .logo .wordmark-ai { color: #17171b; }
-.sidebar .logo .wordmark-name,.sidebar .logo .wordmark-ai { color: #fff; }
+.logo img { display: block; width: 142px; height: auto; object-fit: contain; }
+.marketing .logo img { width: 148px; }
+.auth .logo img { width: 164px; }
+/* The wordmark is black; flip it to white on the dark sidebar. */
+.sidebar .logo img { filter: invert(1); }

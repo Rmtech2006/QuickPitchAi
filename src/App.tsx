@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { api, type ProfileSummary } from "./api";
-import {
-	ClientsPage, Dashboard, NewProposal, ProfileForm, ProposalPage, ProposalsPage, useLoad,
-} from "./pages";
+import { ClientPage, ClientsPage } from "./clients";
+import { Dashboard, NewProposal, ProfileForm, ProposalPage, ProposalsPage } from "./pages";
+import { useLoad } from "./ui";
 import type { Profile } from "./proposal";
 import { Logo, Site, useHashRoute } from "./site";
 
@@ -96,12 +96,14 @@ const NAV = [
 ] as const;
 
 function Shell({ profile, onSignOut, onProfileSaved }: { profile: Profile; onSignOut: () => void; onProfileSaved: () => void }) {
-	const [page, id] = useHashRoute();
+	const [page, id, sub] = useHashRoute();
 
 	let content;
-	if (page === "new") content = <NewProposal key={id ?? "new"} profile={profile} fromId={id} />;
+	if (page === "new" && id === "client") content = <NewProposal key={`c-${sub}`} profile={profile} clientId={sub} />;
+	else if (page === "new") content = <NewProposal key={id ?? "new"} profile={profile} fromId={id} />;
 	else if (page === "proposals" && id) content = <ProposalPage key={id} id={id} profile={profile} />;
 	else if (page === "proposals") content = <ProposalsPage profile={profile} />;
+	else if (page === "clients" && id) content = <ClientPage key={id} id={id} profile={profile} />;
 	else if (page === "clients") content = <ClientsPage profile={profile} />;
 	else if (page === "profile")
 		content = (
@@ -132,7 +134,11 @@ function Shell({ profile, onSignOut, onProfileSaved }: { profile: Profile; onSig
 					))}
 				</ul>
 				<div className="me">
-					<span className="avatar" style={{ background: profile.accent }}>{initials(profile.name)}</span>
+					{profile.logo ? (
+						<img className={`avatar logo-avatar ${profile.logoTone}`} src={profile.logo} alt="" />
+					) : (
+						<span className="avatar" style={{ background: profile.accent }}>{initials(profile.name)}</span>
+					)}
 					<span><strong>{profile.name}</strong><small>{profile.company}</small></span>
 					<button type="button" className="link" onClick={onSignOut}>Switch</button>
 				</div>

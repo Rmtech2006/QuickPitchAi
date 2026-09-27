@@ -1,57 +1,16 @@
-import { type DependencyList, useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ClientFields } from "./clients";
+import { ProposalTable, useLoad } from "./ui";
 import { api } from "./api";
 import { ProposalDoc } from "./ProposalDoc";
 import {
-	LENGTH_KEYS, LENGTHS, type Length, type Model, MODELS, type Profile, type ProfileInput,
-	STATUSES, type Status, type StoredProposal, suggestLength,
+	type ClientInput, LENGTH_KEYS, LENGTHS, type Length, type Model, MODELS, type Profile, type ProfileInput,
+	STATUSES, type Status, suggestLength,
 } from "./proposal";
-
-// Loads data once, keeps showing the old data while it reloads.
-export function useLoad<T>(fn: () => Promise<T>, deps: DependencyList) {
-	const [data, setData] = useState<T>();
-	const [error, setError] = useState("");
-	// biome-ignore lint/correctness/useExhaustiveDependencies: caller supplies deps
-	const run = useCallback(() => {
-		fn().then(setData, (e) => setError(e instanceof Error ? e.message : String(e)));
-	}, deps);
-	useEffect(run, [run]);
-	return { data, error, loading: data === undefined && !error, reload: run, setData };
-}
-
-const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-function ago(iso: string) {
-	const s = (new Date(iso).getTime() - Date.now()) / 1000;
-	for (const [unit, secs] of [["day", 86400], ["hour", 3600], ["minute", 60]] as const)
-		if (Math.abs(s) >= secs) return rtf.format(Math.round(s / secs), unit);
-	return "just now";
-}
 
 function greeting() {
 	const h = new Date().getHours();
 	return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-}
-
-function StatusPill({ status }: { status: Status }) {
-	return <span className={`pill ${status.toLowerCase()}`}>{status}</span>;
-}
-
-function ProposalTable({ items, empty }: { items: StoredProposal[]; empty: React.ReactNode }) {
-	if (!items.length) return <div className="empty">{empty}</div>;
-	return (
-		<table className="list">
-			<thead><tr><th>Title</th><th>Client</th><th>Status</th><th>Updated</th></tr></thead>
-			<tbody>
-				{items.map((p) => (
-					<tr key={p.id}>
-						<td><a href={`#/proposals/${p.id}`}>{p.proposal.title}</a></td>
-						<td>{p.proposal.client}</td>
-						<td><StatusPill status={p.status} /></td>
-						<td className="muted">{ago(p.updatedAt)}</td>
-					</tr>
-				))}
-			</tbody>
-		</table>
-	);
 }
 
 const firstName = (name: string) => name.split(/\s+/)[0];
@@ -148,64 +107,61 @@ export function ProposalsPage({ profile }: { profile: Profile }) {
 	);
 }
 
-export function ClientsPage({ profile }: { profile: Profile }) {
-	const proposals = useLoad(() => api.proposals(profile.id), [profile.id]);
-	// Clients come from proposals (newest first), grouped by name.
-	const clients = new Map<string, { name: string; items: StoredProposal[] }>();
-	for (const p of proposals.data ?? []) {
-		const key = p.proposal.client.trim().toLowerCase();
-		if (!clients.has(key)) clients.set(key, { name: p.proposal.client, items: [] });
-		clients.get(key)?.items.push(p);
-	}
-	return (
-		<div className="page">
-			<h1>Clients</h1>
-			<section className="panel">
-				{proposals.error && <p className="error" role="alert">{proposals.error}</p>}
-				{!proposals.loading && (clients.size === 0 ? (
-					<div className="empty">Clients appear here once you've written a proposal for them.</div>
-				) : (
-					<table className="list">
-						<thead><tr><th>Client</th><th>Proposals</th><th>Won</th><th>Latest</th><th>Last activity</th></tr></thead>
-						<tbody>
-							{[...clients.values()].map(({ name, items }) => (
-								<tr key={name}>
-									<td><a href={`#/proposals/${items[0].id}`}>{name}</a></td>
-									<td>{items.length}</td>
-									<td>{items.filter((p) => p.status === "Won").length}</td>
-									<td><StatusPill status={items[0].status} /></td>
-									<td className="muted">{ago(items[0].updatedAt)}</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				))}
-			</section>
-		</div>
-	);
-}
-
 const STEPS = ["Input details", "Choose format", "Review & generate"];
 
-export function NewProposal({ profile, fromId }: { profile: Profile; fromId?: string }) {
+const NEW_CLIENT = "new";
+
+export function NewProposal({ profile, fromId, clientId: startClient }: { profile: Profile; fromId?: string; clientId?: string }) {
 	const [step, setStep] = useState(0);
 	const [notes, setNotes] = useState("");
+	const clients = useLoad(() => api.clients(profile.id), [profile.id]);
+	const [clientId, setClientId] = useState(startClient ?? "");
+	const [newClient, setNewClient] = useState<ClientInput>({ name: "" });
+	const [saving, setSaving] = useState(false);
 	const [length, setLength] = useState<Length>(1);
 	const [model, setModel] = useState<Model>("opus");
 	const [error, setError] = useState("");
 
 	// "Regenerate" starts from an existing proposal's notes.
 	useEffect(() => {
-		if (fromId) api.proposal(fromId).then((p) => setNotes(p.notes), () => {});
+		if (fromId)
+			api.proposal(fromId).then((p) => {
+				setNotes(p.notes);
+				if (p.clientId) setClientId(p.clientId);
+			}, () => {});
 	}, [fromId]);
 
+	// No saved clients yet: go straight to adding one.
+	const hasClients = (clients.data?.length ?? 0) > 0;
+	const picked = clientId || (clients.data && !hasClients ? NEW_CLIENT : "");
+	const selected = clients.data?.find((c) => c.id === picked);
+	const canContinue = notes.trim() && (picked === NEW_CLIENT ? newClient.name.trim() : picked);
+
 	const suggestion = suggestLength(notes);
+
+	async function toStep2() {
+		setError("");
+		if (picked === NEW_CLIENT) {
+			setSaving(true);
+			try {
+				const c = await api.createClient(profile.id, newClient);
+				clients.setData([...(clients.data ?? []), c]);
+				setClientId(c.id);
+			} catch (e) {
+				setSaving(false);
+				return setError(e instanceof Error ? e.message : String(e));
+			}
+			setSaving(false);
+		}
+		setLength(suggestion.length);
+		setStep(1);
+	}
 
 	async function generate() {
 		setStep(2);
 		setError("");
 		try {
-			const saved = await api.generate({ profileId: profile.id, notes, length, model });
+			const saved = await api.generate({ profileId: profile.id, clientId: clientId || undefined, notes, length, model });
 			location.hash = `#/proposals/${saved.id}`;
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
@@ -225,9 +181,25 @@ export function NewProposal({ profile, fromId }: { profile: Profile; fromId?: st
 
 			{step === 0 && (
 				<section className="panel narrow">
-					<h1>Project notes</h1>
-					<p className="muted">Just drop your notes from the call. Half-sentences are fine. We already know about {profile.company}.</p>
-					<label className="sr-only" htmlFor="notes">Notes from the call</label>
+					<h1>Client & notes</h1>
+					<p className="muted">We design the proposal in your client's brand from their website: logo, colours, fonts and products. We already know about {profile.company}.</p>
+					<label className="field">
+						Client
+						<select value={picked} onChange={(e) => setClientId(e.target.value)}>
+							{hasClients && <option value="">Choose a client…</option>}
+							{clients.data?.map((c) => <option key={c.id} value={c.id}>{c.name}{c.website ? ` · ${c.website}` : ""}</option>)}
+							<option value={NEW_CLIENT}>+ New client</option>
+						</select>
+					</label>
+					{selected && !selected.website && (
+						<p className="muted small">{selected.name} has no website saved, so the design won't match their brand. <a href={`#/clients/${selected.id}`}>Add it</a>.</p>
+					)}
+					{picked === NEW_CLIENT && (
+						<div className="inset">
+							<ClientFields value={newClient} onChange={setNewClient} />
+						</div>
+					)}
+					<label htmlFor="notes" className="field">Notes from the call <small className="muted">Half-sentences are fine.</small></label>
 					<textarea
 						id="notes"
 						rows={14}
@@ -235,17 +207,15 @@ export function NewProposal({ profile, fromId }: { profile: Profile; fromId?: st
 						onChange={(e) => setNotes(e.target.value)}
 						placeholder={"loopus - creator ecosystem platform\nproblem: site built on ai builder, invisible to google\nbuild: marketing site (seo, cms), creator portal, brand dashboard\nstarting at 2.85L + gst, payment 40/40/20\n8 weeks: discovery, build portals, qa + launch"}
 					/>
+					{error && <p className="error" role="alert">{error}</p>}
 					<div className="actions">
 						<button
 							type="button"
 							className="btn"
-							disabled={!notes.trim()}
-							onClick={() => {
-								setLength(suggestion.length);
-								setStep(1);
-							}}
+							disabled={!canContinue || saving}
+							onClick={toStep2}
 						>
-							Continue →
+							{saving ? "Saving client…" : "Continue →"}
 						</button>
 					</div>
 				</section>
@@ -289,7 +259,7 @@ export function NewProposal({ profile, fromId }: { profile: Profile; fromId?: st
 							<button type="button" className="btn ghost" onClick={() => setStep(0)}>Back</button>
 							<button type="button" className="btn" onClick={generate}>Generate →</button>
 						</div>
-						<small className="muted">Runs on your own Claude login. Nothing is sent anywhere else.</small>
+						<small className="muted">Runs on your own Claude login. Claude reads the client's website to match their brand.</small>
 					</aside>
 				</div>
 			)}
@@ -297,16 +267,49 @@ export function NewProposal({ profile, fromId }: { profile: Profile; fromId?: st
 			{step === 2 && (
 				<section className="panel narrow generating" aria-live="polite">
 					<div className="spinner" aria-hidden="true" />
-					<h1>Writing your proposal…</h1>
-					<p className="muted">Usually 20–60 seconds. Longer proposals take a few minutes.</p>
+					<h1>Designing your proposal…</h1>
+					<p className="muted">
+						{clients.data?.find((c) => c.id === clientId)?.website ? "Reading the client's website, picking up their brand, then writing and designing. " : "Writing and designing. "}
+						Usually 1–4 minutes for one page, longer for more pages.
+					</p>
 				</section>
 			)}
 		</div>
 	);
 }
 
+// Safety net for designs that run long: lay the page out taller, then zoom it back to exactly A4,
+// so nothing is cut off on screen or in the PDF.
+function fitPages(doc: Document) {
+	for (const page of doc.querySelectorAll<HTMLElement>(".page")) {
+		page.style.zoom = "";
+		page.style.width = "";
+		page.style.height = "";
+		const over = page.scrollHeight / page.clientHeight;
+		if (!(over > 1.005)) continue;
+		const z = 1 / over;
+		page.style.zoom = String(z);
+		page.style.width = `calc(210mm / ${z})`;
+		page.style.height = `calc(297mm / ${z})`;
+	}
+}
+
 export function ProposalPage({ id, profile }: { id: string; profile: Profile }) {
 	const item = useLoad(() => api.proposal(id), [id]);
+	const frame = useRef<HTMLIFrameElement>(null);
+	// Grow the frame to the page's full height, so the proposal scrolls with the app.
+	const fitFrame = () => {
+		const doc = frame.current?.contentDocument;
+		if (!doc || !frame.current) return;
+		fitPages(doc);
+		frame.current.style.height = `${doc.documentElement.scrollHeight}px`;
+		// Web fonts can change text height after load: fit again once they're in.
+		doc.fonts?.ready.then(() => {
+			fitPages(doc);
+			if (frame.current) frame.current.style.height = `${doc.documentElement.scrollHeight}px`;
+		});
+	};
+	const printFrame = () => frame.current?.contentWindow?.print();
 	const p = item.data;
 	if (item.error || (p && p.profileId !== profile.id))
 		return <div className="page"><p className="error">Proposal not found.</p></div>;
@@ -327,26 +330,120 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 					</select>
 				</label>
 				<a className="btn ghost" href={`#/new/${p.id}`}>Regenerate</a>
-				<button type="button" className="btn" onClick={() => window.print()}>Save as PDF</button>
+				<button type="button" className="btn" onClick={() => (p.html ? printFrame() : window.print())}>Save as PDF</button>
 			</div>
-			<ProposalDoc p={p.proposal} company={profile.company} />
+			{p.html ? (
+				<iframe
+					ref={frame}
+					title={p.title}
+					className="designed"
+					srcDoc={p.html}
+					// No allow-scripts: the page comes from web research, so it may never run code.
+					sandbox="allow-same-origin allow-modals"
+					onLoad={fitFrame}
+				/>
+			) : (
+				p.proposal && <ProposalDoc p={p.proposal} company={profile.company} />
+			)}
 		</div>
 	);
 }
 
 const EMPTY: ProfileInput = {
-	name: "", company: "", whatWeDo: "", services: "", idealClients: "", tone: "", defaultTerms: "", accent: "#f26b1d",
+	name: "", company: "", website: "", email: "", phone: "", logo: "",
+	whatWeDo: "", services: "", idealClients: "", tone: "", defaultTerms: "", accent: "#f26b1d",
 };
 
-const FIELDS: { key: keyof ProfileInput; label: string; hint?: string; placeholder: string; long?: boolean }[] = [
-	{ key: "name", label: "Your name", placeholder: "Ritish Maheshwari" },
-	{ key: "company", label: "Company", placeholder: "Blyft" },
-	{ key: "whatWeDo", label: "What your business does", long: true, placeholder: "Growth consultancy for D2C brands and startups: websites, apps, performance marketing and content." },
-	{ key: "services", label: "Services and standard pricing", hint: "Used only when your call notes don't give a price.", long: true, placeholder: "Website (Next.js, SEO, CMS): from ₹1.5L + GST\nSocial media retainer: ₹45,000/month\nMeta + Google ads management: 15% of ad spend, min ₹25,000/month" },
-	{ key: "idealClients", label: "Who you work with", placeholder: "Founders of D2C brands, restaurants and early-stage startups in India" },
-	{ key: "tone", label: "How your proposals should sound", placeholder: "Direct and confident, short sentences, no jargon" },
-	{ key: "defaultTerms", label: "Standard terms", long: true, placeholder: "50% advance, 50% on delivery. Quote valid 15 days. Two revision rounds included. GST extra." },
+type Field = { key: keyof ProfileInput; label: string; hint?: string; placeholder: string; long?: boolean; type?: string; required?: boolean };
+
+const SECTIONS: { title: string; hint: string; fields: Field[] }[] = [
+	{
+		title: "Brand",
+		hint: "Your logo and website appear on every proposal.",
+		fields: [
+			{ key: "company", label: "Company", placeholder: "BLYFT Technologies", required: true },
+			{ key: "website", label: "Website", placeholder: "www.blyftit.com", type: "url" },
+		],
+	},
+	{
+		title: "Contact",
+		hint: "Shown in the footer of your proposals.",
+		fields: [
+			{ key: "name", label: "Your name", placeholder: "Ritish Maheshwari", required: true },
+			{ key: "email", label: "Email", placeholder: "contact@blyftit.com", type: "email" },
+			{ key: "phone", label: "Phone", placeholder: "+91 98765 43210", type: "tel" },
+		],
+	},
+	{
+		title: "About your business",
+		hint: "So every proposal already knows what you do and what you charge.",
+		fields: [
+			{ key: "whatWeDo", label: "What your business does", long: true, placeholder: "Growth consultancy for D2C brands and startups: websites, apps, performance marketing and content." },
+			{ key: "services", label: "Services and standard pricing", hint: "Used only when your call notes don't give a price.", long: true, placeholder: "Website (Next.js, SEO, CMS): from ₹1.5L + GST\nSocial media retainer: ₹45,000/month\nMeta + Google ads management: 15% of ad spend, min ₹25,000/month" },
+			{ key: "idealClients", label: "Who you work with", placeholder: "Founders of D2C brands, restaurants and early-stage startups in India" },
+			{ key: "tone", label: "How your proposals should sound", placeholder: "Direct and confident, short sentences, no jargon" },
+			{ key: "defaultTerms", label: "Standard terms", long: true, placeholder: "50% advance, 50% on delivery. Quote valid 15 days. Two revision rounds included. GST extra." },
+		],
+	},
 ];
+
+const MAX_LOGO_BYTES = 1_000_000;
+
+// Light logos (white on transparent) need a dark chip on light pages, and vice versa.
+function logoTone(dataUrl: string): Promise<"light" | "dark"> {
+	return new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => {
+			const c = document.createElement("canvas");
+			c.width = c.height = 64;
+			const ctx = c.getContext("2d");
+			if (!ctx) return resolve("dark");
+			ctx.drawImage(img, 0, 0, 64, 64);
+			const px = ctx.getImageData(0, 0, 64, 64).data;
+			let sum = 0;
+			let n = 0;
+			for (let i = 0; i < px.length; i += 4)
+				if (px[i + 3] > 32) {
+					sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+					n++;
+				}
+			resolve(n && sum / n > 160 ? "light" : "dark");
+		};
+		img.onerror = () => resolve("dark");
+		img.src = dataUrl;
+	});
+}
+
+function LogoUpload({ value, tone, onChange }: { value: string; tone: string; onChange: (dataUrl: string, tone: "light" | "dark") => void }) {
+	const [error, setError] = useState("");
+	function pick(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		e.target.value = "";
+		if (!file) return;
+		if (file.size > MAX_LOGO_BYTES) return setError("Logo must be under 1 MB.");
+		setError("");
+		const reader = new FileReader();
+		reader.onload = async () => {
+			const url = String(reader.result);
+			onChange(url, await logoTone(url));
+		};
+		reader.readAsDataURL(file);
+	}
+	return (
+		<div className="logo-upload">
+			<div className={`logo-preview ${value ? tone : ""}`}>{value ? <img src={value} alt="Your logo" /> : <span className="muted">No logo</span>}</div>
+			<div>
+				<label className="btn ghost file-btn">
+					{value ? "Replace logo" : "Upload logo"}
+					<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={pick} className="sr-only" />
+				</label>
+				{value && <button type="button" className="link-btn muted" onClick={() => onChange("", "dark")}>Remove</button>}
+				<small className="muted block">PNG, JPG, WebP or SVG, under 1 MB. A transparent PNG or SVG looks best on coloured pages.</small>
+				{error && <p className="error" role="alert">{error}</p>}
+			</div>
+		</div>
+	);
+}
 
 export function ProfileForm({ initial, submitLabel, onSave, onCancel }: {
 	initial?: ProfileInput;
@@ -375,21 +472,39 @@ export function ProfileForm({ initial, submitLabel, onSave, onCancel }: {
 
 	return (
 		<form className="form" onSubmit={submit}>
-			{FIELDS.map((f) => (
-				<label key={f.key}>
-					{f.label}
-					{f.hint && <small className="muted">{f.hint}</small>}
-					{f.long ? (
-						<textarea rows={4} value={form[f.key]} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} />
-					) : (
-						<input value={form[f.key]} placeholder={f.placeholder} required={f.key === "name" || f.key === "company"} onChange={(e) => set(f.key, e.target.value)} />
+			{SECTIONS.map((sec) => (
+				<fieldset key={sec.title} className="form-section">
+					<legend>{sec.title}</legend>
+					<p className="muted small">{sec.hint}</p>
+					{sec.title === "Brand" && (
+						<>
+							<LogoUpload value={form.logo ?? ""} tone={form.logoTone ?? "dark"} onChange={(logo, tone) => setForm((f) => ({ ...f, logo, logoTone: tone }))} />
+							<label className="row">
+								Brand colour
+								<input type="color" value={form.accent} onChange={(e) => set("accent", e.target.value)} />
+							</label>
+						</>
 					)}
-				</label>
+					{sec.fields.map((f) => (
+						<label key={f.key}>
+							{f.label}
+							{f.hint && <small className="muted">{f.hint}</small>}
+							{f.long ? (
+								<textarea rows={4} value={form[f.key] ?? ""} placeholder={f.placeholder} onChange={(e) => set(f.key, e.target.value)} />
+							) : (
+								<input
+									type={f.type === "url" ? "text" : (f.type ?? "text")}
+									inputMode={f.type === "url" ? "url" : undefined}
+									value={form[f.key] ?? ""}
+									placeholder={f.placeholder}
+									required={f.required}
+									onChange={(e) => set(f.key, e.target.value)}
+								/>
+							)}
+						</label>
+					))}
+				</fieldset>
 			))}
-			<label className="row">
-				Brand colour
-				<input type="color" value={form.accent} onChange={(e) => set("accent", e.target.value)} />
-			</label>
 			{msg && <p className={msg.ok ? "ok" : "error"} role="status">{msg.text}</p>}
 			<div className="actions">
 				{onCancel && <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>}

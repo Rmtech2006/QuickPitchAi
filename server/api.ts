@@ -6,19 +6,36 @@ import { tmpdir } from 'node:os'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
 import {
-  buildPrompt, LENGTH_KEYS, MODELS, type Profile, ProfileInput, Proposal, STATUSES, SYSTEM, type StoredProposal,
+  type Client, ClientInput, DesignedProposal, LENGTH_KEYS, MODELS, type Profile, ProfileInput, STATUSES, type StoredProposal,
 } from '../src/proposal.ts'
+import { brandKit } from './brand.ts'
+import { buildDesignPrompt, DESIGN_SYSTEM, LOGO_PLACEHOLDER } from './design.ts'
 
 // ponytail: one JSON file, whole-file rewrite per change. Fine for a few users on one machine;
 // move to SQLite/Postgres when this is hosted.
 // QP_DATA_DIR lets you run a separate copy (e.g. demo data) without touching your real data.
 const DIR = process.env.QP_DATA_DIR ? pathToFileURL(process.env.QP_DATA_DIR.replace(/\/?$/, '/')) : new URL('../data/', import.meta.url)
 const FILE = new URL('db.json', DIR)
-type Db = { profiles: Profile[]; proposals: StoredProposal[] }
+type Db = { profiles: Profile[]; clients: Client[]; proposals: StoredProposal[] }
 
 function load(): Db {
-  if (!existsSync(FILE)) return { profiles: [], proposals: [] }
-  return JSON.parse(readFileSync(FILE, 'utf8'))
+  if (!existsSync(FILE)) return { profiles: [], clients: [], proposals: [] }
+  const db: Db = JSON.parse(readFileSync(FILE, 'utf8'))
+  db.clients ??= []
+  // Fill fields added after an account was created.
+  for (const p of db.profiles) {
+    p.website ??= ''
+    p.email ??= ''
+    p.phone ??= ''
+    p.logo ??= ''
+    p.logoTone ??= 'dark'
+  }
+  // Older proposals kept title/client inside `proposal`.
+  for (const p of db.proposals) {
+    p.title ??= p.proposal?.title ?? 'Untitled proposal'
+    p.client ??= p.proposal?.client ?? ''
+  }
+  return db
 }
 function save(db: Db) {
   mkdirSync(DIR, { recursive: true })
@@ -28,26 +45,29 @@ function save(db: Db) {
 }
 
 // The CLI's validator rejects the draft-2020 `$schema` tag zod adds.
-const { $schema: _, ...proposalSchema } = z.toJSONSchema(Proposal)
+const { $schema: _, ...designedSchema } = z.toJSONSchema(DesignedProposal)
 
 const GenerateBody = z.object({
   profileId: z.string(),
   notes: z.string().min(1).max(20000),
+  clientId: z.string().optional(),
   length: z.literal([...LENGTH_KEYS]),
   model: z.enum(Object.keys(MODELS) as [keyof typeof MODELS]),
 })
 const StatusBody = z.object({ status: z.enum(STATUSES) })
 
 // Runs the `claude` CLI on this machine, so generation uses your own Claude login, no API key.
-function runClaude(prompt: string, model: string): Promise<Proposal> {
+// Claude may only read the web (WebFetch/WebSearch): no shell, no file access.
+function runClaude(prompt: string, model: string): Promise<DesignedProposal> {
   return new Promise((resolve, reject) => {
     const claude = spawn('claude', [
       '-p',
       '--output-format', 'json',
-      '--json-schema', JSON.stringify(proposalSchema),
-      '--system-prompt', SYSTEM,
+      '--json-schema', JSON.stringify(designedSchema),
+      '--system-prompt', DESIGN_SYSTEM,
       '--model', model,
-      '--tools', '',
+      '--tools', 'WebFetch,WebSearch',
+      '--allowedTools', 'WebFetch', 'WebSearch',
       // Keep your personal Claude setup (connected apps, skills, CLAUDE.md, memory) out of the request.
       '--strict-mcp-config',
       '--disable-slash-commands',
@@ -64,7 +84,7 @@ function runClaude(prompt: string, model: string): Promise<Proposal> {
         const result = JSON.parse(out)
         if (result.is_error || !result.structured_output)
           return reject(new Error(result.result || 'Claude returned no proposal.'))
-        resolve(Proposal.parse(result.structured_output))
+        resolve(DesignedProposal.parse(result.structured_output))
       } catch (e) {
         reject(new Error(err.trim() || (e instanceof Error ? e.message : 'Could not read Claude output.')))
       }
@@ -88,6 +108,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
   const db = load()
   const now = new Date().toISOString()
   const profile = (id: string) => db.profiles.find((p) => p.id === id) ?? (() => { throw new HttpError(404, 'Profile not found') })()
+  const client = (id: string) => db.clients.find((c) => c.id === id) ?? (() => { throw new HttpError(404, 'Client not found') })()
   const proposal = (id: string) => db.proposals.find((p) => p.id === id) ?? (() => { throw new HttpError(404, 'Proposal not found') })()
 
   switch (`${method} ${path[0]}${path[1] ? '/:id' : ''}`) {
@@ -106,6 +127,30 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       save(db)
       return profile(path[1])
     }
+    case 'GET clients':
+      return db.clients.filter((c) => c.profileId === query.get('profileId')).sort((a, b) => a.name.localeCompare(b.name))
+    case 'POST clients': {
+      const b = z.object({ profileId: z.string() }).and(ClientInput).parse(await body())
+      profile(b.profileId)
+      const { profileId, ...input } = b
+      const c: Client = { ...ClientInput.parse(input), id: randomUUID(), profileId, createdAt: now }
+      db.clients.push(c)
+      save(db)
+      return c
+    }
+    case 'GET clients/:id':
+      return client(path[1])
+    case 'PUT clients/:id': {
+      Object.assign(client(path[1]), ClientInput.parse(await body()))
+      save(db)
+      return client(path[1])
+    }
+    case 'DELETE clients/:id': {
+      client(path[1])
+      db.clients = db.clients.filter((c) => c.id !== path[1]) // proposals are kept
+      save(db)
+      return { ok: true }
+    }
     case 'GET proposals':
       return db.proposals
         .filter((p) => p.profileId === query.get('profileId'))
@@ -122,11 +167,23 @@ async function route(method: string, path: string[], body: () => Promise<unknown
     case 'POST generate': {
       const b = GenerateBody.parse(await body())
       const owner = profile(b.profileId)
-      const result = await runClaude(buildPrompt(owner, b.notes, b.length), b.model)
+      const forClient = b.clientId ? client(b.clientId) : null
+      const clientUrl = forClient?.website ?? ''
+      // A site that can't be read just means Claude designs without exact brand values.
+      const [clientKit, ownKit] = await Promise.all([
+        clientUrl ? brandKit(clientUrl).catch(() => null) : null,
+        owner.website ? brandKit(owner.website).catch(() => null) : null,
+      ])
+      const result = await runClaude(
+        buildDesignPrompt({ profile: owner, client: forClient, notes: b.notes, length: b.length, clientUrl, clientKit, ownKit }),
+        b.model,
+      )
       const fresh = load() // re-read: other requests may have saved while Claude was writing
       const stored: StoredProposal = {
-        id: randomUUID(), profileId: owner.id, notes: b.notes, length: b.length,
-        proposal: result, status: 'Draft', createdAt: now, updatedAt: new Date().toISOString(),
+        id: randomUUID(), profileId: owner.id, notes: b.notes, length: b.length, clientId: forClient?.id, clientUrl,
+        title: result.title, client: forClient?.name ?? result.client,
+        html: result.html.replaceAll(LOGO_PLACEHOLDER, owner.logo),
+        status: 'Draft', createdAt: now, updatedAt: new Date().toISOString(),
       }
       fresh.proposals.push(stored)
       save(fresh)
