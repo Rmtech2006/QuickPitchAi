@@ -1,7 +1,9 @@
 // Cleans up a logo in the browser before it's saved:
 // - removes a solid background (e.g. a white wordmark on a black 1200x630 share image),
 // - trims empty padding,
-// - reports whether what's left is light or dark, so the proposal can put it on a contrasting chip.
+// - reports whether what's left is light or dark, so the proposal can put it on a contrasting chip,
+// - flags logos that are too small or can't be separated from a busy background ("poor"),
+// - always returns a PNG.
 
 export type Tone = "light" | "dark";
 
@@ -14,7 +16,9 @@ function load(src: string): Promise<HTMLImageElement> {
 	});
 }
 
-export async function processLogo(dataUrl: string): Promise<{ dataUrl: string; tone: Tone }> {
+export type CleanLogo = { dataUrl: string; tone: Tone; poor: boolean };
+
+export async function processLogo(dataUrl: string): Promise<CleanLogo> {
 	const img = await load(dataUrl);
 	// Rasterise at a print-friendly size: longest side 800px (SVGs often report tiny sizes).
 	const w0 = img.naturalWidth || 300;
@@ -26,7 +30,7 @@ export async function processLogo(dataUrl: string): Promise<{ dataUrl: string; t
 	canvas.width = w;
 	canvas.height = h;
 	const ctx = canvas.getContext("2d", { willReadFrequently: true });
-	if (!ctx) return { dataUrl, tone: "dark" };
+	if (!ctx) return { dataUrl, tone: "dark", poor: true };
 	ctx.drawImage(img, 0, 0, w, h);
 	const image = ctx.getImageData(0, 0, w, h);
 	const px = image.data;
@@ -72,12 +76,15 @@ export async function processLogo(dataUrl: string): Promise<{ dataUrl: string; t
 			lum += (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) * a;
 			weight += a;
 		}
-	if (maxX < 0) return { dataUrl, tone: "dark" };
+	if (maxX < 0) return { dataUrl, tone: "dark", poor: true };
 	const tone: Tone = lum / weight > 160 ? "light" : "dark";
-	// Nothing to remove or trim: keep the original (an SVG stays sharp at any size).
+	// Poor: the real logo is tiny in the source file, or it sits on a busy opaque background we can't remove.
+	const isSvg = dataUrl.startsWith("data:image/svg");
+	const nativeW = (maxX - minX + 1) / (isSvg ? 1 : scale);
+	const nativeH = (maxY - minY + 1) / (isSvg ? 1 : scale);
+	const opaqueCorners = corners.every((i) => px[i + 3] > 250);
+	const poor = (!isSvg && (nativeW < 100 || nativeH < 28)) || (opaqueCorners && !solid);
 	const pad = Math.round(Math.max(maxX - minX, maxY - minY) * 0.04);
-	const cropped = minX > pad || minY > pad || maxX < w - 1 - pad || maxY < h - 1 - pad;
-	if (!solid && !cropped) return { dataUrl, tone };
 
 	ctx.putImageData(image, 0, 0);
 	const x0 = Math.max(0, minX - pad);
@@ -88,5 +95,5 @@ export async function processLogo(dataUrl: string): Promise<{ dataUrl: string; t
 	out.width = cw;
 	out.height = ch;
 	out.getContext("2d")?.drawImage(canvas, x0, y0, cw, ch, 0, 0, cw, ch);
-	return { dataUrl: out.toDataURL("image/png"), tone };
+	return { dataUrl: out.toDataURL("image/png"), tone, poor };
 }

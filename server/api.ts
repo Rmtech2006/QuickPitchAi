@@ -23,6 +23,11 @@ function load(): Db {
   if (!existsSync(FILE)) return { profiles: [], clients: [], proposals: [] }
   const db: Db = JSON.parse(readFileSync(FILE, 'utf8'))
   db.clients ??= []
+  for (const c of db.clients) {
+    c.logo ??= ''
+    c.logoTone ??= 'dark'
+    c.logoVersion ??= 0
+  }
   // Fill fields added after an account was created.
   for (const p of db.profiles) {
     p.website ??= ''
@@ -30,6 +35,7 @@ function load(): Db {
     p.phone ??= ''
     p.logo ??= ''
     p.logoTone ??= 'dark'
+    p.logoVersion ??= 0
   }
   // Older proposals kept title/client inside `proposal`.
   for (const p of db.proposals) {
@@ -94,6 +100,14 @@ function runClaude(prompt: string, model: string): Promise<DesignedProposal> {
     })
     claude.stdin.end(prompt)
   })
+}
+
+// Like a hand-numbered quotation: BLY/2026-27/APL-01 (Indian financial year, April to March).
+function proposalNumber(company: string, client: string, n: number) {
+  const letters = (name: string, fallback: string) => (name.replace(/[^a-z]/gi, '').slice(0, 3).toUpperCase() || fallback)
+  const now = new Date()
+  const fy = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
+  return `${letters(company, 'QP')}/${fy}-${String(fy + 1).slice(2)}/${letters(client, 'CLT')}-${String(n).padStart(2, '0')}`
 }
 
 async function readJson(req: IncomingMessage): Promise<unknown> {
@@ -174,6 +188,12 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       save(db)
       return p
     }
+    case 'DELETE proposals/:id': {
+      proposal(path[1])
+      db.proposals = db.proposals.filter((p) => p.id !== path[1])
+      save(db)
+      return { ok: true }
+    }
     case 'POST generate': {
       const b = GenerateBody.parse(await body())
       const owner = profile(b.profileId)
@@ -195,6 +215,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         buildDesignPrompt({
           profile: owner, client: forClient, notes: b.notes, length: b.length, clientUrl, clientKit, ownKit,
           ourLogo, clientLogo, productImage: b.productImage ? (clientKit?.heroImage ?? '') : '',
+          reference: proposalNumber(owner.company, forClient?.name ?? '', db.proposals.filter((p) => p.profileId === owner.id && p.clientId === forClient?.id).length + 1),
         }),
         b.model,
       )

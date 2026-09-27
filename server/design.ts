@@ -13,31 +13,39 @@ Facts:
 - Prices, timelines and payment terms come from the call notes. If the notes have none, use the standard pricing and terms in <our_business> where they clearly apply. Otherwise write "To be confirmed". Never invent a number or a statistic.
 - Client facts come only from their website or the notes. Keep currency and tax wording exactly as given (e.g. "₹2,85,000 + GST").
 
-Page layout (top to bottom):
-1. Header: client logo × our logo (see Logos below). Right side: "<proposal type> · <Month Year>" and "Prepared for <names or team>". Thin divider.
-2. Eyebrow line in spaced capitals naming the core promise (e.g. "50 CREATORS · EVERY MONTH · REAL ROUTINES").
-3. A big two-line headline about the client's goal, using the client's brand colours on key words. Then a 2-3 line intro that proves we understood their business, with the most important phrases in bold.
-4. "Where ..." section: three insight cards, each with a small coloured label (e.g. TRUST, EDUCATION, CONVERSION), a title and 2-3 lines.
-5. "What we'll build / run" section: four numbered cards (01-04) with a title and two bullets each.
-6. Bottom row: an investment block in the client's strongest brand colour with the price very large, what it includes, payment terms and a 3-step timeline strip; beside it "Why <our company>" with four bold-lead bullets.
-7. Footer: a one-line call to action, our contact details, and a pill-shaped button label (e.g. "Confirm & kick off →").
-Adapt section names and content to the deal.
+Page layout (top to bottom), in the style of a well-made agency quotation:
+1. Header: client logo × our logo on the left (see Logos). On the right, the document type named after the actual work in the notes (for example "Social Media Campaign Proposal" or "Website Proposal") and the date.
+2. A meta row of four small columns: Client (name and city if known) · Date · Proposal no. (use exactly the number in <reference>) · Valid until. Small grey labels, values below. Hairline rule above and below.
+3. Title: one plain headline of at most 9 words that names the client and the work. At most two words in the accent colour. Then a 2-sentence intro that shows we understood their business, using one or two real facts from their website.
+4. "Where things stand": three short observations side by side, separated by thin vertical rules. Each is a short heading and one or two sentences.
+5. "Scope of work": the deliverables as a numbered list in a two-column grid, numbered left to right, row by row (1 2 / 3 4 / 5 6), at most 6 items, small numbers (same size as the text), each item a short title and one line. Add a one-line "Included:" and, if relevant, "Not included:" note.
+6. "Investment": a bordered table with the line items and a total cell filled with the accent colour, showing the price large. Below it three small columns: Payment · Timeline · Taxes.
+7. "Why <our company>": two plain sentences, specific to this client.
+8. "Terms & next step": one short paragraph: validity, what happens next and how to confirm.
+9. Footer: our company name, website, email and phone on one line, and the client contact it is prepared for.
+Adapt headings to the deal, but keep them plain labels. Only the main title may be written as a line.
 
 Logos:
-- <logos> says which logos we have. For each one that is available, use exactly the <img> tag it gives. We replace the placeholder with the real, cleaned-up logo file. Style logos with height 30-38px, width auto, max-width 160px, object-fit: contain.
+- <logos> says which logos we have. For each one that is available, use exactly the <img> tag it gives. We replace the placeholder with the real, cleaned-up logo file. Style logos with height 32-40px, width auto, max-width 170px, object-fit: contain.
 - Never use any other logo image or URL, and never type a company's name in place of a logo that is available. Only when a logo is not available, set that company's name as a wordmark in its brand font.
-- Contrast: a dark logo must sit on a light surface and a light logo on a dark surface. If the header background doesn't give that contrast, put the logo on a small rounded chip (padding about 6px 12px) in a contrasting colour. If the tone is unknown, use a white chip.
+- Contrast: a dark logo must sit on a light surface and a light logo on a dark surface. If the header background doesn't give that contrast, put the logo on a small rectangle (radius 4px, padding about 6px 10px) in a contrasting colour. If the tone is unknown, use a white rectangle with a hairline border.
 
 Images:
-- Follow <product_image>. When no image is allowed, use no photos at all: typography, colour and shapes only.
-- When an image is allowed, use it at most once, inside its own box beside the headline, with object-fit: contain (never cover or crop, since it may contain text) on a background matching the page. Never put text over it.
+- Follow <product_image>. When no image is allowed, use no photos at all.
+- When an image is allowed, use it at most once, in its own box beside the title, with object-fit: contain (never cover or crop) on a matching background. Never put text over it.
+
+Writing (it must read like the founder wrote it after the call, not like AI):
+- Plain, specific, first person plural ("we"). Short sentences. Use the client's product names and real facts.
+- Do not use: contrasts like "X, not Y" or "not just X, but Y"; slogan fragments ("Every rupee visible."); taglines of phrases joined with dots or bullets; rhetorical questions; exclamation marks; em or en dashes (use commas or full stops); and these words: unlock, supercharge, seamless, elevate, leverage, empower, transform, game-changer, cutting-edge, robust, holistic, synergy, journey, world-class, next-level, measurable, drive growth.
+- No bullet lists that start with a bold slogan. Use bold only for prices and product names, at most five times on the page.
 
 Design rules:
-- A4 portrait. Use @page { size: A4; margin: 0 } and body { margin: 0 }. Wrap each page in <section class="page"> with width: 210mm; height: 297mm; overflow: hidden; box-sizing: border-box, and page-break-after between pages. Use exactly that class name.
-- Everything must fit on its page. A one-page proposal holds about 380 words in total: keep each card to 2-3 short lines, bullets under 10 words, and body text around 9.5-10.5pt. Don't add extra strips or rows beyond the layout above.
-- Load the client's fonts from Google Fonts with a <link> tag when available. Otherwise pick the closest Google Font.
-- Decorative shapes, images and background text must never overlap or sit behind any text.
-- Dark or light background to match the client's site. Cards with subtle borders and rounded corners, generous but compact spacing, strong typographic hierarchy.
+- A4 portrait. Use @page { size: A4; margin: 0 } and body { margin: 0 }. Wrap each page in <section class="page"> with width: 210mm; height: 297mm; overflow: hidden; box-sizing: border-box, and page-break-after between pages. Use exactly that class name. Inner margins 14-16mm.
+- Everything must fit on its page. A one-page proposal holds about 250 words in total, so keep every section short. Drafts usually run long, so write less than you think fits. Plan the vertical space before writing: header and meta row about 45mm, title and intro 40mm, observations 35mm, scope 60mm, investment 55mm, why + terms + footer 45mm. Body text 9.5-10pt with line-height 1.45; labels 7.5-8pt.
+- Colour: the client's main brand colour (the first colour in their brand kit, unless the site clearly shows another) as the only accent, plus black, white and greys. If that colour is light, like yellow or lime, still use it: as a fill behind black text (the total cell, a slim header band or label underlines), never as text on white. All small labels use the same grey or the accent. Background white, or the client's dark colour only for a slim header band if their site is dark.
+- Typography: the client's brand font from Google Fonts (a <link> tag), or the closest Google Font. At most two families. Letter-spacing on small capital labels at most 0.08em; never letter-space anything longer than four words.
+- Structure with hairline rules (0.5-1px, light grey) and aligned columns. At most one filled block on the page (the total price). Corner radius at most 6px.
+- No gradients, glows, drop shadows, blurred shapes, icons, emoji, decorative symbols, big display numerals, pill badges or fake buttons.
 - Add * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } so colours print.
 - No JavaScript, no forms, no iframes. The only external resources allowed are Google Fonts and the product image URL in <product_image>.
 
@@ -79,6 +87,7 @@ export function buildDesignPrompt(o: {
   ourLogo: LogoInfo
   clientLogo: LogoInfo
   productImage: string
+  reference: string
 }) {
   const p = o.profile
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -113,6 +122,7 @@ ${logoLine('Our logo', p.company, OUR_LOGO, o.ourLogo)}
 ${o.productImage ? `Allowed. You may use this photo from the client's website: ${o.productImage}` : 'Not allowed. Use no photos.'}
 </product_image>
 
+<reference>${o.reference}</reference>
 Today: ${today}
 Length: ${LENGTH_BRIEF[o.length]}
 

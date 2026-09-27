@@ -41,7 +41,7 @@ export function ClientFields({ value, onChange }: { value: ClientInput; onChange
 					value={value.logo ?? ""}
 					tone={value.logoTone ?? "dark"}
 					website={value.website}
-					onChange={(logo, logoTone) => onChange({ ...value, logo, logoTone })}
+					onChange={(logo, logoTone, logoVersion) => onChange({ ...value, logo, logoTone, logoVersion })}
 				/>
 			</div>
 			<label className="span-2">
@@ -198,7 +198,14 @@ export function ClientPage({ id, profile }: { id: string; profile: Profile }) {
 				<section className="panel">
 					<h2>Proposals</h2>
 					{items.length > 0 && <p className="muted">Last activity {ago(items[0].updatedAt)}</p>}
-					<ProposalTable items={items} empty={<>No proposals yet. <a href={`#/new/client/${c.id}`}>Write one</a>.</>} />
+					<ProposalTable
+						items={items}
+						empty={<>No proposals yet. <a href={`#/new/client/${c.id}`}>Write one</a>.</>}
+						onDelete={async (pid) => {
+							await api.deleteProposal(pid);
+							proposals.reload();
+						}}
+					/>
 				</section>
 			</div>
 		</div>

@@ -23,6 +23,7 @@ export const api = {
 	proposals: (profileId: string) =>
 		call<StoredProposal[]>("GET", `proposals?profileId=${encodeURIComponent(profileId)}`),
 	proposal: (id: string) => call<StoredProposal>("GET", `proposals/${id}`),
+	deleteProposal: (id: string) => call<{ ok: true }>("DELETE", `proposals/${id}`, {}),
 	setStatus: (id: string, status: Status) => call<StoredProposal>("PATCH", `proposals/${id}`, { status }),
 	clients: (profileId: string) => call<Client[]>("GET", `clients?profileId=${encodeURIComponent(profileId)}`),
 	client: (id: string) => call<Client>("GET", `clients/${id}`),

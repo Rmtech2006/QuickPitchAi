@@ -28,6 +28,8 @@ const LogoData = z
 	.regex(/^(data:image\/(png|jpeg|webp|svg\+xml);base64,[a-z0-9+/=]+)?$/i)
 	.default("");
 const LogoTone = z.enum(["light", "dark"]).default("dark");
+// 1 = cleaned up by src/logo.ts (PNG, trimmed, background removed). Older logos get fixed on next open.
+const LogoVersion = z.number().int().min(0).max(10).default(0);
 
 // What each account tells us once, so every proposal already knows the business.
 export const ProfileInput = z.object({
@@ -44,6 +46,7 @@ export const ProfileInput = z.object({
 	phone: z.string().max(50).default(""),
 	logo: LogoData,
 	logoTone: LogoTone,
+	logoVersion: LogoVersion,
 });
 export type ProfileInput = z.input<typeof ProfileInput>;
 export type Profile = z.output<typeof ProfileInput> & { id: string; createdAt: string };
@@ -57,6 +60,7 @@ export const ClientInput = z.object({
 	notes: z.string().max(3000).default(""),
 	logo: LogoData,
 	logoTone: LogoTone,
+	logoVersion: LogoVersion,
 });
 export type ClientInput = z.input<typeof ClientInput>;
 export type Client = z.output<typeof ClientInput> & { id: string; profileId: string; createdAt: string };

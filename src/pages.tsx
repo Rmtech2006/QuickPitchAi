@@ -101,7 +101,16 @@ export function ProposalsPage({ profile }: { profile: Profile }) {
 			</div>
 			<section className="panel">
 				{proposals.error && <p className="error" role="alert">{proposals.error}</p>}
-				{!proposals.loading && <ProposalTable items={items} empty="Nothing here yet." />}
+				{!proposals.loading && (
+					<ProposalTable
+						items={items}
+						empty="Nothing here yet."
+						onDelete={async (id) => {
+							await api.deleteProposal(id);
+							proposals.setData((proposals.data ?? []).filter((p) => p.id !== id));
+						}}
+					/>
+				)}
 			</section>
 		</div>
 	);
@@ -307,6 +316,7 @@ function fitPages(doc: Document) {
 export function ProposalPage({ id, profile }: { id: string; profile: Profile }) {
 	const item = useLoad(() => api.proposal(id), [id]);
 	const frame = useRef<HTMLIFrameElement>(null);
+	const [confirmDelete, setConfirmDelete] = useState(false);
 	// Grow the frame to the page's full height, so the proposal scrolls with the app.
 	const fitFrame = () => {
 		const doc = frame.current?.contentDocument;
@@ -340,6 +350,15 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 					</select>
 				</label>
 				<a className="btn ghost" href={`#/new/${p.id}`}>Regenerate</a>
+				{confirmDelete ? (
+					<span className="confirm">
+						Delete this proposal?
+						<button type="button" className="btn danger-btn" onClick={() => api.deleteProposal(p.id).then(() => (location.hash = "#/proposals"))}>Delete</button>
+						<button type="button" className="btn ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+					</span>
+				) : (
+					<button type="button" className="btn ghost" onClick={() => setConfirmDelete(true)}>Delete</button>
+				)}
 				<button type="button" className="btn" onClick={() => (p.html ? printFrame() : window.print())}>Save as PDF</button>
 			</div>
 			{p.html ? (
@@ -417,8 +436,10 @@ export function ProfileForm({ initial, submitLabel, onSave, onCancel }: {
 		setBusy(true);
 		setMsg(undefined);
 		try {
-			await onSave(form);
-			setMsg({ ok: true, text: "Saved." });
+			const withLogo = await withFoundLogo(form);
+			setForm(withLogo);
+			await onSave(withLogo);
+			setMsg({ ok: true, text: withLogo.logo && !form.logo ? "Saved. We found your logo on your website." : "Saved." });
 		} catch (err) {
 			setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
 		} finally {
@@ -434,7 +455,7 @@ export function ProfileForm({ initial, submitLabel, onSave, onCancel }: {
 					<p className="muted small">{sec.hint}</p>
 					{sec.title === "Brand" && (
 						<>
-							<LogoPicker value={form.logo ?? ""} tone={form.logoTone ?? "dark"} website={form.website} onChange={(logo, tone) => setForm((f) => ({ ...f, logo, logoTone: tone }))} />
+							<LogoPicker value={form.logo ?? ""} tone={form.logoTone ?? "dark"} website={form.website} onChange={(logo, logoTone, logoVersion) => setForm((f) => ({ ...f, logo, logoTone, logoVersion }))} />
 							<label className="row">
 								Brand colour
 								<input type="color" value={form.accent} onChange={(e) => set("accent", e.target.value)} />

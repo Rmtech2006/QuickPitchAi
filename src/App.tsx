@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type ProfileSummary } from "./api";
 import { ClientPage, ClientsPage } from "./clients";
 import { Dashboard, NewProposal, ProfileForm, ProposalPage, ProposalsPage } from "./pages";
-import { useLoad } from "./ui";
+import { LOGO_VERSION, useLoad, withFoundLogo } from "./ui";
 import type { Profile } from "./proposal";
 import { Logo, Site, useHashRoute } from "./site";
 
@@ -95,8 +95,34 @@ const NAV = [
 	["profile", "Business profile"],
 ] as const;
 
+// Once per session: clean up logos saved before the logo pipeline existed, and find missing ones.
+function useLogoUpkeep(profile: Profile, onProfileSaved: () => void) {
+	const done = useRef(false);
+	useEffect(() => {
+		if (done.current) return;
+		done.current = true;
+		const stale = (x: { logo: string; logoVersion: number; website: string }) =>
+			x.logo ? x.logoVersion < LOGO_VERSION : Boolean(x.website.trim());
+		(async () => {
+			if (stale(profile)) {
+				const fixed = await withFoundLogo(profile);
+				if (fixed.logo !== profile.logo) {
+					await api.updateProfile(profile.id, fixed);
+					onProfileSaved();
+				}
+			}
+			for (const c of await api.clients(profile.id)) {
+				if (!stale(c)) continue;
+				const fixed = await withFoundLogo(c);
+				if (fixed.logo !== c.logo) await api.updateClient(c.id, fixed);
+			}
+		})().catch(() => {});
+	}, [profile, onProfileSaved]);
+}
+
 function Shell({ profile, onSignOut, onProfileSaved }: { profile: Profile; onSignOut: () => void; onProfileSaved: () => void }) {
 	const [page, id, sub] = useHashRoute();
+	useLogoUpkeep(profile, onProfileSaved);
 
 	let content;
 	if (page === "new" && id === "client") content = <NewProposal key={`c-${sub}`} profile={profile} clientId={sub} />;
