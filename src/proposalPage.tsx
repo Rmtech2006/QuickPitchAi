@@ -1,4 +1,3 @@
-import { hosted } from "./auth";
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import { ProposalDoc } from "./ProposalDoc";
@@ -101,7 +100,6 @@ export function ProposalPage({ id, profile }: { id: string; profile: Profile }) 
 	async function downloadPdf() {
 		const d = doc();
 		if (!d) return window.print(); // older text-only proposals
-		if (hosted) return d.defaultView?.print(); // online there's no server-side Chrome: use the browser's Save as PDF
 		setBusy("pdf");
 		setNote(undefined);
 		try {

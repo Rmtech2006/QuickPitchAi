@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 import { api, type ProfileSummary } from "./api";
-import { supabase } from "./auth";
 import { ClientPage, ClientsPage } from "./clients";
 import { Dashboard, NewProposal, ProfileForm, ProposalsPage } from "./pages";
 import { ProposalPage } from "./proposalPage";
@@ -27,60 +25,9 @@ export const initials = (name: string) =>
 	name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
 export default function App() {
-	// Hosted: the marketing site, with the invite-only app at /app.
-	if (import.meta.env.PROD) return location.pathname.startsWith("/app") ? <HostedApp /> : <Site />;
+	// The hosted build has no local server or Claude login, so it only explains how to run it.
+	if (import.meta.env.PROD) return <Site />;
 	return <LocalApp />;
-}
-
-function HostedApp() {
-	if (!supabase) return <div className="auth"><p className="auth-card error" role="alert">Login isn't set up yet.</p></div>;
-	return <HostedSession />;
-}
-
-function HostedSession() {
-	const [session, setSession] = useState<Session | null | undefined>(undefined);
-	useEffect(() => {
-		supabase!.auth.getSession().then(({ data }) => setSession(data.session));
-		const { data } = supabase!.auth.onAuthStateChange((_event, s) => setSession(s));
-		return () => data.subscription.unsubscribe();
-	}, []);
-	if (session === undefined) return null;
-	if (!session) return <EmailLogin />;
-	return <LocalApp />;
-}
-
-function EmailLogin() {
-	const [email, setEmail] = useState("");
-	const [state, setState] = useState<"idle" | "sending" | "sent" | string>("idle");
-	const send = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setState("sending");
-		const { error } = await supabase!.auth.signInWithOtp({
-			email: email.trim(),
-			options: { shouldCreateUser: false, emailRedirectTo: `${location.origin}/app` },
-		});
-		setState(error ? "That email isn't invited yet, or the link couldn't be sent. Try again." : "sent");
-	};
-	return (
-		<div className="auth">
-			<div className="auth-card">
-				<Logo />
-				<h1>Log in to QuickPitch</h1>
-				{state === "sent" ? (
-					<p className="muted">Check your inbox for a login link from QuickPitch. Open it in this browser.</p>
-				) : (
-					<form onSubmit={send}>
-						<label className="field">
-							Work email
-							<input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-						</label>
-						{state !== "idle" && state !== "sending" && <p className="error" role="alert">{state}</p>}
-						<button type="submit" className="btn" disabled={state === "sending"}>{state === "sending" ? "Sending…" : "Email me a login link"}</button>
-					</form>
-				)}
-			</div>
-		</div>
-	);
 }
 
 function LocalApp() {
@@ -136,7 +83,6 @@ function SignIn({ onSignIn }: { onSignIn: (id: string) => void }) {
 					))}
 				</div>
 				<button type="button" className="btn ghost" onClick={() => setCreating(true)}>+ New account</button>
-				{supabase && <button type="button" className="link" onClick={() => supabase!.auth.signOut()}>Log out</button>}
 			</div>
 		</div>
 	);
