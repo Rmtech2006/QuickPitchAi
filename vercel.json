@@ -9,8 +9,7 @@
     "api/[...path].ts": {
       "maxDuration": 300,
       "memory": 2048,
-      "excludeFiles": "data/**",
-      "architecture": "x86_64"
+      "excludeFiles": "data/**"
     }
   }
 }

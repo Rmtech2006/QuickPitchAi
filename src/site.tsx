@@ -43,10 +43,9 @@ export function Site() {
 				<nav aria-label="Site">
 					<a href="#how-it-works">How it works</a>
 					<a href="#examples">Examples</a>
-					<a href="#get-started">Get started</a>
 					<a href="#contact">Contact</a>
 				</nav>
-				<a className="pill" href={REPO} target="_blank" rel="noreferrer">GitHub<span className="sr-only"> (opens in a new tab)</span> ↗</a>
+				<a className="pill" href="/app">Log in</a>
 			</header>
 			<main id="main" tabIndex={-1}>{policy ? <Policy {...policy} /> : <Home />}</main>
 			<footer className="marketing-footer">
@@ -73,7 +72,7 @@ function Home() {
 					<h1>Good work deserves a <em>clear proposal.</em></h1>
 					<p className="hero-lede">QuickPitch turns your call notes into a client-ready proposal. You bring the details and make the decisions. It helps with the writing.</p>
 					<div className="hero-actions">
-						<a className="btn" href="#get-started">Get started</a>
+						<a className="btn" href="#contact">Get started</a>
 						<a className="pill" href="#how-it-works">How it works</a>
 					</div>
 				</div>
@@ -122,15 +121,6 @@ function Home() {
 				<article><h3>You stay in control of the numbers</h3><p>Prices and terms come from your notes and your business profile. Anything missing is marked "To be confirmed" for you to fill in. AI can make mistakes, so review every proposal before you send it.</p></article>
 			</section>
 
-			<section className="band" id="get-started" aria-labelledby="start-title">
-				<div className="section-intro"><p className="eyebrow">Get started</p><h2 id="start-title">Runs on your own computer.</h2></div>
-				<div className="start-copy">
-					<p>This website doesn't generate proposals. QuickPitch runs on your machine and writes with your own Claude plan through Claude Code. There are no API keys and no per-proposal fee. Your notes and proposals are saved on your computer.</p>
-					<p>You need <a href="https://nodejs.org" target="_blank" rel="noreferrer">Node.js 20+<span className="sr-only"> (opens in a new tab)</span></a> and <a href="https://claude.com/claude-code" target="_blank" rel="noreferrer">Claude Code<span className="sr-only"> (opens in a new tab)</span></a>, signed in with your Claude account.</p>
-					<pre><code>{`git clone ${REPO}.git\ncd QuickPitchAi\nnpm install\nnpm run dev`}</code></pre>
-					<p>Then open <code>http://localhost:5173</code> and create your business profile.</p>
-				</div>
-			</section>
 
 			<section className="band" id="contact" aria-labelledby="contact-title">
 				<div className="section-intro"><p className="eyebrow">Contact</p><h2 id="contact-title">Want QuickPitch for your team?</h2></div>
