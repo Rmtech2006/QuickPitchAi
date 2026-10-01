@@ -2,8 +2,7 @@
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
-  // Read by Vercel when it compiles api/: turn the './x.ts' imports into './x.js' in the output.
-  "compilerOptions": { "rewriteRelativeImportExtensions": true, "module": "nodenext", "moduleResolution": "nodenext" }
+    { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.worker.json" }
+  ]
 }

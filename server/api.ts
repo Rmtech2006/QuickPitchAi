@@ -1,29 +1,18 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { z } from 'zod'
-import {
-  type Client, ClientInput, AVAILABLE_LENGTHS, DesignedProposal, MODELS, type Profile, ProfileInput, type RunCost, STATUSES, type StoredProposal, type Version,
-} from '../src/proposal.ts'
-import { brandKit } from './brand.ts'
-import { buildDesignPrompt, CLIENT_LOGO, DESIGN_SYSTEM, type LogoInfo, MESSAGE_RULES, OUR_LOGO, REVISE_SYSTEM } from './design.ts'
-import { findLogo } from './logo.ts'
-import { runClaudeApi } from './claudeApi.ts'
+import { HttpError, normalize, PdfBody, route, type Claude, type Store } from './route.ts'
 
-// ponytail: each person's data is one JSON document, rewritten whole per change (a file locally, a
-// Supabase row when hosted). Fine for a handful of invited users; split into tables if it grows.
+// The local API, run inside the Vite dev server: data in data/db.json, writing through your own `claude` login.
 // QP_DATA_DIR lets you run a separate copy (e.g. demo data) without touching your real data.
 const DIR = process.env.QP_DATA_DIR ? pathToFileURL(process.env.QP_DATA_DIR.replace(/\/?$/, '/')) : new URL('../data/', import.meta.url)
 const FILE = new URL('db.json', DIR)
-export type Db = { profiles: Profile[]; clients: Client[]; proposals: StoredProposal[] }
-// Where one person's data lives: the JSON file on your machine, or their row in Supabase when hosted.
-export type Store = { load: () => Promise<Db>; save: (db: Db) => Promise<void> }
 
-export const fileStore: Store = {
+const fileStore: Store = {
   load: async () => normalize(existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : {}),
   save: async (db) => {
     mkdirSync(DIR, { recursive: true })
@@ -33,90 +22,9 @@ export const fileStore: Store = {
   },
 }
 
-export function normalize(db: Partial<Db>): Db {
-  db.profiles ??= []
-  db.proposals ??= []
-  db.clients ??= []
-  for (const c of db.clients) {
-    c.logo ??= ''
-    c.logoTone ??= 'dark'
-    c.logoVersion ??= 0
-  }
-  // Fill fields added after an account was created.
-  for (const p of db.profiles) {
-    p.website ??= ''
-    p.email ??= ''
-    p.phone ??= ''
-    p.logo ??= ''
-    p.logoTone ??= 'dark'
-    p.logoVersion ??= 0
-  }
-  // Older proposals kept title/client inside `proposal`.
-  for (const p of db.proposals) {
-    p.title ??= p.proposal?.title ?? 'Untitled proposal'
-    p.client ??= p.proposal?.client ?? ''
-    if (p.html && !p.versions) p.versions = [{ html: p.html, title: p.title, label: 'Generated', createdAt: p.createdAt }]
-  }
-  return db as Db
-}
-
-// The CLI's validator rejects the draft-2020 `$schema` tag zod adds.
-const { $schema: _, ...designedSchema } = z.toJSONSchema(DesignedProposal)
-
-const GenerateBody = z.object({
-  profileId: z.string(),
-  notes: z.string().max(20000).default(''),
-  // Plain text of an uploaded meeting transcript (read in the browser).
-  transcript: z.string().max(600_000).default(''),
-  transcriptName: z.string().max(300).default(''),
-  clientId: z.string().optional(),
-  // Regenerate: add a new version to this proposal instead of creating another one.
-  proposalId: z.string().optional(),
-  productImage: z.boolean().default(false),
-  // Only the one-page proposal is live for now.
-  length: z.literal([...AVAILABLE_LENGTHS] as [1]),
-  model: z.enum(Object.keys(MODELS) as [keyof typeof MODELS]),
-}).refine((b) => b.notes.trim() || b.transcript.trim(), { message: 'Add call notes or a meeting transcript', path: ['notes'] })
-const StatusBody = z.object({ status: z.enum(STATUSES) })
-const EditBody = z.object({ html: z.string().min(1).max(8_000_000) })
-const ReviseBody = z.object({ instruction: z.string().min(1).max(2000), model: z.enum(Object.keys(MODELS) as [keyof typeof MODELS]) })
-const RestoreBody = z.object({ version: z.number().int().min(0) })
-const MessageBody = z.object({ message: z.string().max(3000) })
-const PdfBody = z.object({ html: z.string().min(1).max(8_000_000) })
-const MessageOnly = z.object({ message: z.string() })
-const { $schema: _m, ...messageSchema } = z.toJSONSchema(MessageOnly)
-
-// Big inline images (logos, photos) are swapped for short placeholders while Claude revises a page.
-function stashImages(html: string) {
-  const images: string[] = []
-  const text = html.replace(/data:image\/[a-z+.-]+;base64,[A-Za-z0-9+/=]+/g, (m) => {
-    let i = images.indexOf(m)
-    if (i < 0) i = images.push(m) - 1
-    return `{{IMG_${i + 1}}}`
-  })
-  return { text, restore: (out: string) => out.replace(/\{\{IMG_(\d+)\}\}/g, (m, n) => images[Number(n) - 1] ?? m) }
-}
-
-function addVersion(p: StoredProposal, v: Omit<Version, 'createdAt'>) {
-  const createdAt = new Date().toISOString()
-  p.versions = [...(p.versions ?? []), { ...v, createdAt }]
-  p.html = v.html
-  p.title = v.title
-  p.updatedAt = createdAt
-}
-
-// A list view doesn't need every page and version, which can be megabytes.
-const summary = ({ html: _h, versions, proposal: _p, transcript: _t, ...rest }: StoredProposal) => ({ ...rest, versionCount: versions?.length ?? 0 })
-
 // Runs the `claude` CLI on this machine, so generation uses your own Claude login, no API key.
 // Claude may only read the web (WebFetch/WebSearch): no shell, no file access.
-function runClaude(prompt: string, model: string, system = DESIGN_SYSTEM): Promise<{ value: DesignedProposal; cost: RunCost }> {
-  return runClaudeAs(prompt, model, system, DesignedProposal, designedSchema)
-}
-
-// Hosted on Vercel there's no CLI, so the same call goes to the Claude API (billed to ANTHROPIC_API_KEY).
-function runClaudeAs<T>(prompt: string, model: string, system: string, parser: z.ZodType<T>, jsonSchema: object): Promise<{ value: T; cost: RunCost }> {
-  if (process.env.VERCEL) return runClaudeApi(prompt, model as keyof typeof MODELS, system, parser, jsonSchema)
+const claudeCli: Claude = (prompt, model, system, parser, jsonSchema) => {
   return new Promise((resolve, reject) => {
     const claude = spawn('claude', [
       '-p',
@@ -162,205 +70,10 @@ function runClaudeAs<T>(prompt: string, model: string, system: string, parser: z
   })
 }
 
-// Like a hand-numbered quotation: BLY/2026-27/APL-01 (Indian financial year, April to March).
-function proposalNumber(company: string, client: string, n: number) {
-  const letters = (name: string, fallback: string) => (name.replace(/[^a-z]/gi, '').slice(0, 3).toUpperCase() || fallback)
-  const now = new Date()
-  const fy = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
-  return `${letters(company, 'QP')}/${fy}-${String(fy + 1).slice(2)}/${letters(client, 'CLT')}-${String(n).padStart(2, '0')}`
-}
-
 async function readJson(req: IncomingMessage): Promise<unknown> {
   let raw = ''
   for await (const chunk of req) raw += chunk
   return JSON.parse(raw || '{}')
-}
-
-class HttpError extends Error {
-  status: number
-  constructor(status: number, message: string) { super(message); this.status = status }
-}
-
-async function route(store: Store, method: string, path: string[], body: () => Promise<unknown>, query: URLSearchParams) {
-  const save = store.save
-  const db = await store.load()
-  const now = new Date().toISOString()
-  const profile = (id: string) => db.profiles.find((p) => p.id === id) ?? (() => { throw new HttpError(404, 'Profile not found') })()
-  const client = (id: string) => db.clients.find((c) => c.id === id) ?? (() => { throw new HttpError(404, 'Client not found') })()
-  const proposal = (id: string) => db.proposals.find((p) => p.id === id) ?? (() => { throw new HttpError(404, 'Proposal not found') })()
-
-  switch (`${method} ${path[0]}${path[1] ? '/:id' : ''}${path[2] ? `/${path[2]}` : ''}`) {
-    case 'GET profiles':
-      return db.profiles.map(({ id, name, company, accent }) => ({ id, name, company, accent }))
-    case 'POST profiles': {
-      const p: Profile = { ...ProfileInput.parse(await body()), id: randomUUID(), createdAt: now }
-      db.profiles.push(p)
-      await save(db)
-      return p
-    }
-    case 'GET profiles/:id':
-      return profile(path[1])
-    case 'PUT profiles/:id': {
-      Object.assign(profile(path[1]), ProfileInput.parse(await body()))
-      await save(db)
-      return profile(path[1])
-    }
-    case 'GET clients':
-      return db.clients.filter((c) => c.profileId === query.get('profileId')).sort((a, b) => a.name.localeCompare(b.name))
-    case 'POST clients': {
-      const b = z.object({ profileId: z.string() }).and(ClientInput).parse(await body())
-      profile(b.profileId)
-      const { profileId, ...input } = b
-      const c: Client = { ...ClientInput.parse(input), id: randomUUID(), profileId, createdAt: now }
-      db.clients.push(c)
-      await save(db)
-      return c
-    }
-    case 'GET clients/:id':
-      return client(path[1])
-    case 'PUT clients/:id': {
-      Object.assign(client(path[1]), ClientInput.parse(await body()))
-      await save(db)
-      return client(path[1])
-    }
-    case 'DELETE clients/:id': {
-      client(path[1])
-      db.clients = db.clients.filter((c) => c.id !== path[1]) // proposals are kept
-      await save(db)
-      return { ok: true }
-    }
-    case 'GET logo': {
-      const site = query.get('url') ?? ''
-      if (!site) throw new HttpError(400, 'Add a website first')
-      const found = await findLogo(site).catch(() => null)
-      if (!found) throw new HttpError(404, "Couldn't find a logo on that website. Upload one instead.")
-      return found
-    }
-    case 'GET proposals':
-      return db.proposals
-        .filter((p) => p.profileId === query.get('profileId'))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .map(summary)
-    case 'GET proposals/:id':
-      return proposal(path[1])
-    case 'PATCH proposals/:id': {
-      const p = proposal(path[1])
-      p.status = StatusBody.parse(await body()).status
-      p.updatedAt = now
-      await save(db)
-      return p
-    }
-    case 'POST proposals/:id/versions': {
-      // Text edited directly on the page.
-      const p = proposal(path[1])
-      addVersion(p, { html: EditBody.parse(await body()).html, title: p.title, label: 'Edited by hand' })
-      await save(db)
-      return p
-    }
-    case 'POST proposals/:id/restore': {
-      const p = proposal(path[1])
-      const n = RestoreBody.parse(await body()).version
-      const v = p.versions?.[n]
-      if (!v) throw new HttpError(404, 'Version not found')
-      addVersion(p, { html: v.html, title: v.title, label: `Restored v${n + 1}` })
-      await save(db)
-      return p
-    }
-    case 'POST proposals/:id/message': {
-      // Write the send note for a proposal made before notes existed. The page itself is untouched.
-      const p = proposal(path[1])
-      const c = p.clientId ? db.clients.find((x) => x.id === p.clientId) : null
-      const pageText = (p.html ?? '').replace(/<style[\s\S]*?<\/style>|<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20000)
-      const { value: out } = await runClaudeAs(
-        `Client contact: ${c?.contactName || 'not given'}\n\n<proposal_text>\n${pageText}\n</proposal_text>`,
-        'sonnet',
-        `Write the short note that goes with this proposal PDF on WhatsApp or email.\n\n${MESSAGE_RULES}`,
-        MessageOnly,
-        messageSchema,
-      )
-      p.message = out.message
-      await save(db)
-      return p
-    }
-    case 'PUT proposals/:id/message': {
-      const p = proposal(path[1])
-      p.message = MessageBody.parse(await body()).message
-      await save(db)
-      return p
-    }
-    case 'POST proposals/:id/revise': {
-      const p = proposal(path[1])
-      if (!p.html) throw new HttpError(400, 'Only designed proposals can be revised. Regenerate this one first.')
-      const b = ReviseBody.parse(await body())
-      const { text, restore } = stashImages(p.html)
-      const { value: result, cost } = await runClaude(
-        `Client website: ${p.clientUrl || 'not given'}\n\n<requested_change>\n${b.instruction}\n</requested_change>\n\n<current_message>\n${p.message ?? ''}\n</current_message>\n\n<proposal_html>\n${text}\n</proposal_html>`,
-        b.model,
-        REVISE_SYSTEM,
-      )
-      const fresh = await store.load() // re-read: other requests may have saved while Claude was writing
-      const target = fresh.proposals.find((x) => x.id === p.id)
-      if (!target) throw new HttpError(404, 'Proposal was deleted while revising')
-      addVersion(target, { html: restore(result.html), title: result.title, label: `Revised: ${b.instruction.slice(0, 80)}`, cost })
-      target.message = result.message
-      await save(fresh)
-      return target
-    }
-    case 'DELETE proposals/:id': {
-      proposal(path[1])
-      db.proposals = db.proposals.filter((p) => p.id !== path[1])
-      await save(db)
-      return { ok: true }
-    }
-    case 'POST generate': {
-      const b = GenerateBody.parse(await body())
-      const owner = profile(b.profileId)
-      const forClient = b.clientId ? client(b.clientId) : null
-      const clientUrl = forClient?.website ?? ''
-      // A site that can't be read just means Claude designs without exact brand values.
-      const [clientKit, ownKit] = await Promise.all([
-        clientUrl ? brandKit(clientUrl).catch(() => null) : null,
-        owner.website ? brandKit(owner.website).catch(() => null) : null,
-      ])
-      // Saved logos are already cleaned up and know their tone; otherwise look one up on the website.
-      const logoFor = async (saved: { logo: string; logoTone: 'light' | 'dark' } | null, site: string): Promise<LogoInfo> => {
-        if (saved?.logo) return { dataUrl: saved.logo, tone: saved.logoTone }
-        const found = site ? await findLogo(site).catch(() => null) : null
-        return found && { dataUrl: found.dataUrl, tone: 'unknown' }
-      }
-      const [ourLogo, clientLogo] = await Promise.all([logoFor(owner, owner.website), logoFor(forClient, clientUrl)])
-      const existing = b.proposalId ? proposal(b.proposalId) : null
-      const reference = existing?.reference ?? proposalNumber(owner.company, forClient?.name ?? '', db.proposals.filter((p) => p.profileId === owner.id && p.clientId === forClient?.id).length + 1)
-      const { value: result, cost } = await runClaude(
-        buildDesignPrompt({
-          profile: owner, client: forClient, notes: b.notes, length: b.length, clientUrl, clientKit, ownKit,
-          ourLogo, clientLogo, productImage: b.productImage ? (clientKit?.heroImage ?? '') : '',
-          reference, transcript: b.transcript,
-        }),
-        b.model,
-      )
-      const html = result.html.replaceAll(OUR_LOGO, ourLogo?.dataUrl ?? '').replaceAll(CLIENT_LOGO, clientLogo?.dataUrl ?? '')
-      const fresh = await store.load() // re-read: other requests may have saved while Claude was writing
-      const again = existing && fresh.proposals.find((x) => x.id === existing.id)
-      if (again) {
-        Object.assign(again, { notes: b.notes, transcript: b.transcript, transcriptName: b.transcriptName, clientId: forClient?.id, clientUrl, client: forClient?.name ?? result.client, message: result.message })
-        addVersion(again, { html, title: result.title, label: 'Regenerated', cost })
-        await save(fresh)
-        return again
-      }
-      const stored: StoredProposal = {
-        id: randomUUID(), profileId: owner.id, notes: b.notes, transcript: b.transcript || undefined, transcriptName: b.transcriptName || undefined,
-        length: b.length, clientId: forClient?.id, clientUrl, reference,
-        title: result.title, client: forClient?.name ?? result.client, html, message: result.message,
-        versions: [{ html, title: result.title, label: 'Generated', createdAt: new Date().toISOString(), cost }],
-        status: 'Draft', createdAt: now, updatedAt: new Date().toISOString(),
-      }
-      fresh.proposals.push(stored)
-      await save(fresh)
-      return stored
-    }
-  }
-  throw new HttpError(404, 'Not found')
 }
 
 // Chrome (or a Chromium-based browser) already on this machine turns the page into a real PDF.
@@ -382,25 +95,7 @@ function findChrome(): string | null {
   return null
 }
 
-// Vercel has no Chrome installed, so the hosted site uses a serverless build of Chromium.
-async function htmlToPdfServerless(html: string): Promise<Buffer> {
-  const [{ default: chromium }, { default: puppeteer }] = await Promise.all([import('@sparticuz/chromium'), import('puppeteer-core')])
-  const browser = await puppeteer.launch({
-    args: await puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
-    executablePath: await chromium.executablePath(),
-    headless: 'shell',
-  })
-  try {
-    const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'load', timeout: 30_000 })
-    return Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }))
-  } finally {
-    await browser.close()
-  }
-}
-
 function htmlToPdf(html: string): Promise<Buffer> {
-  if (process.env.VERCEL) return htmlToPdfServerless(html)
   const chrome = findChrome()
   if (!chrome) return Promise.reject(new HttpError(501, 'No Chrome found for PDF export. Use your browser\'s print dialog instead.'))
   const dir = mkdtempSync(join(tmpdir(), 'quickpitch-pdf-'))
@@ -435,7 +130,7 @@ function htmlToPdf(html: string): Promise<Buffer> {
   })
 }
 
-export async function handleApi(req: IncomingMessage, res: ServerResponse, store: Store = fileStore) {
+export async function handleApi(req: IncomingMessage, res: ServerResponse) {
   const send = (status: number, data: unknown) => {
     res.statusCode = status
     res.setHeader('Content-Type', 'application/json')
@@ -458,7 +153,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, store
     }
   }
   try {
-    send(200, await route(store, req.method ?? 'GET', path, () => readJson(req), url.searchParams))
+    send(200, await route({ store: fileStore, claude: claudeCli }, req.method ?? 'GET', path, () => readJson(req), url.searchParams))
   } catch (e) {
     if (e instanceof HttpError) return send(e.status, { error: e.message })
     if (e instanceof z.ZodError) return send(400, { error: 'Please check the form: ' + e.issues.map((i) => i.path.join('.')).join(', ') })

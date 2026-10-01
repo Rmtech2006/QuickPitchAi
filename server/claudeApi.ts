@@ -1,15 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { z } from 'zod'
-import type { Model, RunCost } from '../src/proposal.ts'
+import type { Model } from '../src/proposal.ts'
+import type { Claude } from './route.ts'
 
-// The hosted site has no `claude` CLI, so it calls the Claude API with ANTHROPIC_API_KEY instead.
+// The hosted site has no `claude` CLI, so it calls the Claude API with your API key instead.
 // Same contract as the CLI path in api.ts: prompt in, schema-checked JSON + cost out.
 const MODEL_IDS: Record<Model, string> = { opus: 'claude-opus-5-5', sonnet: 'claude-sonnet-5-5' }
 // USD per million tokens: input, output, cache read, cache write. Web search is $10 per 1,000 searches.
 const PRICES: Record<Model, [number, number, number, number]> = { opus: [4, 20, 0.2, 5], sonnet: [2, 10, 0.2, 2.5] }
 
-export async function runClaudeApi<T>(prompt: string, model: Model, system: string, parser: z.ZodType<T>, jsonSchema: object): Promise<{ value: T; cost: RunCost }> {
-  const client = new Anthropic()
+export const claudeApi = (apiKey: string): Claude => async (prompt, model, system, parser, jsonSchema) => {
+  const client = new Anthropic({ apiKey })
   const started = Date.now()
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: 'user', content: prompt }]
   const t = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, searches: 0 }
