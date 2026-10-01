@@ -1,13 +1,14 @@
+import { authHeader, hosted } from "./auth";
 import type { Client, ClientInput, Length, Model, Profile, ProfileInput, Status, StoredProposal } from "./proposal";
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
 	const res = await fetch(`/api/${path}`, {
 		method,
-		headers: body ? { "Content-Type": "application/json" } : undefined,
+		headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(await authHeader()) },
 		body: body ? JSON.stringify(body) : undefined,
 	});
 	const data = await res.json().catch(() => {
-		throw new Error("QuickPitch's local server isn't running. Start it with `npm run dev`.");
+		throw new Error(hosted ? "Couldn't reach QuickPitch. Check your connection and try again." : "QuickPitch's local server isn't running. Start it with `npm run dev`.");
 	});
 	if (!res.ok) throw new Error(data.error ?? `Request failed (${res.status})`);
 	return data as T;
@@ -31,7 +32,7 @@ export const api = {
 	saveMessage: (id: string, message: string) => call<StoredProposal>("PUT", `proposals/${id}/message`, { message }),
 	// Returns the PDF file; errors come back as JSON.
 	pdf: async (html: string) => {
-		const res = await fetch("/api/pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ html }) });
+		const res = await fetch("/api/pdf", { method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) }, body: JSON.stringify({ html }) });
 		if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? "PDF export failed");
 		return res.blob();
 	},

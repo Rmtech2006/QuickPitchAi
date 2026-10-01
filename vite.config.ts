@@ -6,6 +6,6 @@ import { handleApi } from './server/api.ts'
 export default defineConfig({
   plugins: [
     react(),
-    { name: 'quickpitch-api', configureServer: (server) => { server.middlewares.use('/api', handleApi) } },
+    { name: 'quickpitch-api', configureServer: (server) => { server.middlewares.use('/api', (req, res) => handleApi(req, res)) } },
   ],
 })

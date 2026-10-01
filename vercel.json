@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/app",
+      "destination": "/index.html"
+    }
+  ],
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 300,
+      "memory": 2048,
+      "excludeFiles": "data/**",
+      "architecture": "x86_64"
+    }
+  }
+}

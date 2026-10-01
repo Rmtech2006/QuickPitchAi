@@ -10,7 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@sparticuz/chromium": "^153.0.0",
+    "@supabase/supabase-js": "^2.117.2",
     "pdfjs-dist": "^6.3.289",
+    "puppeteer-core": "^25.12.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zod": "^4.6.5"

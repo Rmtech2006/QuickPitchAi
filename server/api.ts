@@ -12,17 +12,30 @@ import {
 import { brandKit } from './brand.ts'
 import { buildDesignPrompt, CLIENT_LOGO, DESIGN_SYSTEM, type LogoInfo, MESSAGE_RULES, OUR_LOGO, REVISE_SYSTEM } from './design.ts'
 import { findLogo } from './logo.ts'
+import { runClaudeApi } from './claudeApi.ts'
 
-// ponytail: one JSON file, whole-file rewrite per change. Fine for a few users on one machine;
-// move to SQLite/Postgres when this is hosted.
+// ponytail: each person's data is one JSON document, rewritten whole per change (a file locally, a
+// Supabase row when hosted). Fine for a handful of invited users; split into tables if it grows.
 // QP_DATA_DIR lets you run a separate copy (e.g. demo data) without touching your real data.
 const DIR = process.env.QP_DATA_DIR ? pathToFileURL(process.env.QP_DATA_DIR.replace(/\/?$/, '/')) : new URL('../data/', import.meta.url)
 const FILE = new URL('db.json', DIR)
-type Db = { profiles: Profile[]; clients: Client[]; proposals: StoredProposal[] }
+export type Db = { profiles: Profile[]; clients: Client[]; proposals: StoredProposal[] }
+// Where one person's data lives: the JSON file on your machine, or their row in Supabase when hosted.
+export type Store = { load: () => Promise<Db>; save: (db: Db) => Promise<void> }
 
-function load(): Db {
-  if (!existsSync(FILE)) return { profiles: [], clients: [], proposals: [] }
-  const db: Db = JSON.parse(readFileSync(FILE, 'utf8'))
+export const fileStore: Store = {
+  load: async () => normalize(existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : {}),
+  save: async (db) => {
+    mkdirSync(DIR, { recursive: true })
+    const tmp = new URL('db.json.tmp', DIR)
+    writeFileSync(tmp, JSON.stringify(db, null, 2)) // write then rename, so a crash never leaves half a file
+    renameSync(tmp, FILE)
+  },
+}
+
+export function normalize(db: Partial<Db>): Db {
+  db.profiles ??= []
+  db.proposals ??= []
   db.clients ??= []
   for (const c of db.clients) {
     c.logo ??= ''
@@ -44,13 +57,7 @@ function load(): Db {
     p.client ??= p.proposal?.client ?? ''
     if (p.html && !p.versions) p.versions = [{ html: p.html, title: p.title, label: 'Generated', createdAt: p.createdAt }]
   }
-  return db
-}
-function save(db: Db) {
-  mkdirSync(DIR, { recursive: true })
-  const tmp = new URL('db.json.tmp', DIR)
-  writeFileSync(tmp, JSON.stringify(db, null, 2)) // write then rename, so a crash never leaves half a file
-  renameSync(tmp, FILE)
+  return db as Db
 }
 
 // The CLI's validator rejects the draft-2020 `$schema` tag zod adds.
@@ -107,7 +114,9 @@ function runClaude(prompt: string, model: string, system = DESIGN_SYSTEM): Promi
   return runClaudeAs(prompt, model, system, DesignedProposal, designedSchema)
 }
 
+// Hosted on Vercel there's no CLI, so the same call goes to the Claude API (billed to ANTHROPIC_API_KEY).
 function runClaudeAs<T>(prompt: string, model: string, system: string, parser: z.ZodType<T>, jsonSchema: object): Promise<{ value: T; cost: RunCost }> {
+  if (process.env.VERCEL) return runClaudeApi(prompt, model as keyof typeof MODELS, system, parser, jsonSchema)
   return new Promise((resolve, reject) => {
     const claude = spawn('claude', [
       '-p',
@@ -172,8 +181,9 @@ class HttpError extends Error {
   constructor(status: number, message: string) { super(message); this.status = status }
 }
 
-async function route(method: string, path: string[], body: () => Promise<unknown>, query: URLSearchParams) {
-  const db = load()
+async function route(store: Store, method: string, path: string[], body: () => Promise<unknown>, query: URLSearchParams) {
+  const save = store.save
+  const db = await store.load()
   const now = new Date().toISOString()
   const profile = (id: string) => db.profiles.find((p) => p.id === id) ?? (() => { throw new HttpError(404, 'Profile not found') })()
   const client = (id: string) => db.clients.find((c) => c.id === id) ?? (() => { throw new HttpError(404, 'Client not found') })()
@@ -185,14 +195,14 @@ async function route(method: string, path: string[], body: () => Promise<unknown
     case 'POST profiles': {
       const p: Profile = { ...ProfileInput.parse(await body()), id: randomUUID(), createdAt: now }
       db.profiles.push(p)
-      save(db)
+      await save(db)
       return p
     }
     case 'GET profiles/:id':
       return profile(path[1])
     case 'PUT profiles/:id': {
       Object.assign(profile(path[1]), ProfileInput.parse(await body()))
-      save(db)
+      await save(db)
       return profile(path[1])
     }
     case 'GET clients':
@@ -203,20 +213,20 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const { profileId, ...input } = b
       const c: Client = { ...ClientInput.parse(input), id: randomUUID(), profileId, createdAt: now }
       db.clients.push(c)
-      save(db)
+      await save(db)
       return c
     }
     case 'GET clients/:id':
       return client(path[1])
     case 'PUT clients/:id': {
       Object.assign(client(path[1]), ClientInput.parse(await body()))
-      save(db)
+      await save(db)
       return client(path[1])
     }
     case 'DELETE clients/:id': {
       client(path[1])
       db.clients = db.clients.filter((c) => c.id !== path[1]) // proposals are kept
-      save(db)
+      await save(db)
       return { ok: true }
     }
     case 'GET logo': {
@@ -237,14 +247,14 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const p = proposal(path[1])
       p.status = StatusBody.parse(await body()).status
       p.updatedAt = now
-      save(db)
+      await save(db)
       return p
     }
     case 'POST proposals/:id/versions': {
       // Text edited directly on the page.
       const p = proposal(path[1])
       addVersion(p, { html: EditBody.parse(await body()).html, title: p.title, label: 'Edited by hand' })
-      save(db)
+      await save(db)
       return p
     }
     case 'POST proposals/:id/restore': {
@@ -253,7 +263,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
       const v = p.versions?.[n]
       if (!v) throw new HttpError(404, 'Version not found')
       addVersion(p, { html: v.html, title: v.title, label: `Restored v${n + 1}` })
-      save(db)
+      await save(db)
       return p
     }
     case 'POST proposals/:id/message': {
@@ -269,13 +279,13 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         messageSchema,
       )
       p.message = out.message
-      save(db)
+      await save(db)
       return p
     }
     case 'PUT proposals/:id/message': {
       const p = proposal(path[1])
       p.message = MessageBody.parse(await body()).message
-      save(db)
+      await save(db)
       return p
     }
     case 'POST proposals/:id/revise': {
@@ -288,18 +298,18 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         b.model,
         REVISE_SYSTEM,
       )
-      const fresh = load() // re-read: other requests may have saved while Claude was writing
+      const fresh = await store.load() // re-read: other requests may have saved while Claude was writing
       const target = fresh.proposals.find((x) => x.id === p.id)
       if (!target) throw new HttpError(404, 'Proposal was deleted while revising')
       addVersion(target, { html: restore(result.html), title: result.title, label: `Revised: ${b.instruction.slice(0, 80)}`, cost })
       target.message = result.message
-      save(fresh)
+      await save(fresh)
       return target
     }
     case 'DELETE proposals/:id': {
       proposal(path[1])
       db.proposals = db.proposals.filter((p) => p.id !== path[1])
-      save(db)
+      await save(db)
       return { ok: true }
     }
     case 'POST generate': {
@@ -330,12 +340,12 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         b.model,
       )
       const html = result.html.replaceAll(OUR_LOGO, ourLogo?.dataUrl ?? '').replaceAll(CLIENT_LOGO, clientLogo?.dataUrl ?? '')
-      const fresh = load() // re-read: other requests may have saved while Claude was writing
+      const fresh = await store.load() // re-read: other requests may have saved while Claude was writing
       const again = existing && fresh.proposals.find((x) => x.id === existing.id)
       if (again) {
         Object.assign(again, { notes: b.notes, transcript: b.transcript, transcriptName: b.transcriptName, clientId: forClient?.id, clientUrl, client: forClient?.name ?? result.client, message: result.message })
         addVersion(again, { html, title: result.title, label: 'Regenerated', cost })
-        save(fresh)
+        await save(fresh)
         return again
       }
       const stored: StoredProposal = {
@@ -346,7 +356,7 @@ async function route(method: string, path: string[], body: () => Promise<unknown
         status: 'Draft', createdAt: now, updatedAt: new Date().toISOString(),
       }
       fresh.proposals.push(stored)
-      save(fresh)
+      await save(fresh)
       return stored
     }
   }
@@ -372,7 +382,25 @@ function findChrome(): string | null {
   return null
 }
 
+// Vercel has no Chrome installed, so the hosted site uses a serverless build of Chromium.
+async function htmlToPdfServerless(html: string): Promise<Buffer> {
+  const [{ default: chromium }, { default: puppeteer }] = await Promise.all([import('@sparticuz/chromium'), import('puppeteer-core')])
+  const browser = await puppeteer.launch({
+    args: await puppeteer.defaultArgs({ args: chromium.args, headless: 'shell' }),
+    executablePath: await chromium.executablePath(),
+    headless: 'shell',
+  })
+  try {
+    const page = await browser.newPage()
+    await page.setContent(html, { waitUntil: 'load', timeout: 30_000 })
+    return Buffer.from(await page.pdf({ preferCSSPageSize: true, printBackground: true }))
+  } finally {
+    await browser.close()
+  }
+}
+
 function htmlToPdf(html: string): Promise<Buffer> {
+  if (process.env.VERCEL) return htmlToPdfServerless(html)
   const chrome = findChrome()
   if (!chrome) return Promise.reject(new HttpError(501, 'No Chrome found for PDF export. Use your browser\'s print dialog instead.'))
   const dir = mkdtempSync(join(tmpdir(), 'quickpitch-pdf-'))
@@ -407,7 +435,7 @@ function htmlToPdf(html: string): Promise<Buffer> {
   })
 }
 
-export async function handleApi(req: IncomingMessage, res: ServerResponse) {
+export async function handleApi(req: IncomingMessage, res: ServerResponse, store: Store = fileStore) {
   const send = (status: number, data: unknown) => {
     res.statusCode = status
     res.setHeader('Content-Type', 'application/json')
@@ -430,7 +458,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse) {
     }
   }
   try {
-    send(200, await route(req.method ?? 'GET', path, () => readJson(req), url.searchParams))
+    send(200, await route(store, req.method ?? 'GET', path, () => readJson(req), url.searchParams))
   } catch (e) {
     if (e instanceof HttpError) return send(e.status, { error: e.message })
     if (e instanceof z.ZodError) return send(400, { error: 'Please check the form: ' + e.issues.map((i) => i.path.join('.')).join(', ') })
