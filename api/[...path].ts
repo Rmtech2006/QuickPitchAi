@@ -4,7 +4,10 @@ import { handleApi, normalize, type Store } from '../server/api.ts'
 
 // The hosted API: the same handler as the local dev server, but each signed-in person gets their
 // own data row in Supabase, and Claude runs through the API key (see server/claudeApi.ts).
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
+const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env
+const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
+  : null
 // Invite-only: every proposal costs API money, so only these emails get in (comma-separated).
 const allowed = (process.env.QP_ALLOWED_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
 
@@ -14,6 +17,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     res.setHeader('Content-Type', 'application/json')
     res.end(JSON.stringify({ error }))
   }
+  if (!supabase || !process.env.ANTHROPIC_API_KEY) return deny(503, "QuickPitch online isn't set up yet.")
   const token = req.headers.authorization?.replace(/^Bearer /, '')
   const user = token ? (await supabase.auth.getUser(token)).data.user : null
   if (!user) return deny(401, 'Please log in again.')
